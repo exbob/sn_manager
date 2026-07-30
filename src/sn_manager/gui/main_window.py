@@ -31,6 +31,7 @@ from sn_manager.app.services import SnService
 from sn_manager.core.errors import SnError
 from sn_manager.core.status import Status
 from sn_manager.gui.generate_dialog import GenerateDialog
+from sn_manager.gui.master_data_dialog import MasterDataDialog
 
 _TABLE_COLUMNS: list[tuple[str, str]] = [
     ("sn", "SN"),
@@ -272,7 +273,8 @@ class MainWindow(QMainWindow):
         self._table.selectAll()
 
     def _on_master_data(self) -> None:
-        QMessageBox.information(self, "主数据", "主数据功能将在后续任务中实现。")
+        dlg = MasterDataDialog(self._service, parent=self)
+        dlg.exec()
 
     def _on_change_status(self) -> None:
         QMessageBox.information(self, "改状态", "改状态功能将在后续任务中实现。")

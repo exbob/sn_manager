@@ -59,6 +59,10 @@ class SnService:
     def set_status(self, sns: list[str], status: Status) -> None:
         ser.update_statuses(self.conn, sns, status)
 
+    def apply_master_data(self, snapshot: MasterSnapshot) -> None:
+        """主数据对话框确认时一次性同步四类主数据。"""
+        self.replace_master_data(snapshot)
+
     def replace_master_data(self, snapshot: MasterSnapshot) -> None:
         self._sync_codes(
             "product_models",
