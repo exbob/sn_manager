@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDateEdit,
+    QDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -27,7 +28,9 @@ from PySide6.QtWidgets import (
 )
 
 from sn_manager.app.services import SnService
+from sn_manager.core.errors import SnError
 from sn_manager.core.status import Status
+from sn_manager.gui.generate_dialog import GenerateDialog
 
 _TABLE_COLUMNS: list[tuple[str, str]] = [
     ("sn", "SN"),
@@ -246,7 +249,27 @@ class MainWindow(QMainWindow):
         self._export_btn.setEnabled(has_selection)
 
     def _on_generate(self) -> None:
-        QMessageBox.information(self, "生成", "生成功能将在后续任务中实现。")
+        dlg = GenerateDialog(self._service, parent=self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        params = dlg.params()
+        if params is None:
+            return
+        try:
+            rows = self._service.generate(
+                product_model=params.product_model,
+                hw_batch=params.hw_batch,
+                factory=params.factory,
+                market=params.market,
+                prod_date=params.prod_date,
+                count=params.count,
+            )
+        except SnError as exc:
+            QMessageBox.warning(self, "生成失败", str(exc))
+            return
+        self._rows = rows
+        self._populate_table(rows)
+        self._table.selectAll()
 
     def _on_master_data(self) -> None:
         QMessageBox.information(self, "主数据", "主数据功能将在后续任务中实现。")
