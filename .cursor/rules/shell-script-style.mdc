@@ -1,0 +1,12 @@
+---
+description: "Shell script coding style"
+globs: **/*.{sh,bash}
+alwaysApply: true
+---
+
+# Shell Script Coding Style
+
+## Requirements
+
+1. Prefer Bash syntax and features by default (use `#!/bin/bash` as the preferred shebang).
+2. See skill: `bash-script-style-guide.md` for comprehensive Bash script coding standards and guidelines..

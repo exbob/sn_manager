@@ -6,3 +6,4 @@ dist/
 *.spec
 sn_manager.db
 scripts/app_version.txt
+.superpowers/
