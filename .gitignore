@@ -1,0 +1,8 @@
+__pycache__
+.venv
+.pytest_cache
+build/
+dist/
+*.spec
+sn_manager.db
+scripts/app_version.txt

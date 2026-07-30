@@ -1,37 +1,45 @@
 # sn-manager
 
-#### 介绍
-生成和管理设备序列号的软件
+产线单机桌面工具：本地生成、查询、导出设备序列号（Version A），数据存本机 SQLite，无需联网。
 
-#### 软件架构
-软件架构说明
+## 运行环境
 
+- **操作系统**：Windows 或 Linux 单机
+- **数据文件**：与可执行文件同目录的 `sn_manager.db`（首次运行自动创建）
+- **开发运行**（需 Python ≥3.12 与 [uv](https://docs.astral.sh/uv/)）：
 
-#### 安装教程
+```bash
+uv sync
+uv run sn-manager
+```
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+开发态下数据库位于当前工作目录的 `sn_manager.db`。
 
-#### 使用说明
+## 使用打包产物
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+| 平台 | 构建命令 | 启动方式 |
+| ---- | -------- | -------- |
+| Linux | `./scripts/build.sh` | `./dist/sn-manager/sn-manager` |
+| Windows | `.\scripts\build.ps1` | `dist\sn-manager\sn-manager.exe` |
 
-#### 参与贡献
+采用 **onedir** 打包：可执行文件与 `sn_manager.db` 位于同一目录（`dist/sn-manager/`），便于备份与迁移。
 
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
+## 数据备份
 
+定期复制 `sn_manager.db` 到安全位置即可整库备份。恢复时将文件放回可执行文件同目录，覆盖前请先关闭程序。
 
-#### 特技
+## 注意事项
 
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+- **勿双开**：同一台机器上不要同时运行多个实例指向同一 `sn_manager.db`，否则可能导致 SQLite 写入冲突或数据损坏。
+- **分平台构建**：PyInstaller 需在目标操作系统上构建（Linux 脚本产出 Linux 可执行文件，Windows 脚本产出 `.exe`），不支持可靠交叉编译。
+
+## 开发
+
+```bash
+uv sync
+uv run pytest -v
+```
+
+## 软件架构
+
+PySide6 GUI → 应用服务层 → 领域核心（SN 编解码）+ SQLite 持久化。详见 `PRD.md` 与设计规格 `docs/superpowers/specs/`。
