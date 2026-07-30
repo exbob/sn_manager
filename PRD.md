@@ -63,7 +63,7 @@ sn_gui (PySide6)
 
 ### 运行约定
 
-- 数据文件：exe 旁（或约定用户目录）的单文件 SQLite：`sn_manager.db`
+- 数据文件：与可执行文件同目录的单文件 SQLite：`sn_manager.db`（Windows / Linux 相同策略）
 - 无登录、无网络依赖
 - 便于整库备份 `sn_manager.db`
 
@@ -88,10 +88,10 @@ sn_gui (PySide6)
 | ---- | ------ |
 | `sn` TEXT UNIQUE | 完整 17 位 SN |
 | `version`, `product_model`, `hw_batch`, `factory`, `market` | 解析字段，便于筛选 |
-| `prod_year`, `prod_month`, `prod_day` | 生产日（与 SN 编码一致） |
+| `prod_year`, `prod_month`, `prod_day` | 公历数值（如 2026, 12, 1）；写入 SN 时再编码为两位年与月日字符 |
 | `seq` INTEGER | 当日序号 0–4095（对应 `000`–`FFF`） |
 | `status` | `unused` / `used` / `void`，三种可任意互改 |
-| `created_at`, `updated_at` | 审计时间 |
+| `created_at`, `updated_at` | UTC ISO-8601 文本 |
 
 **唯一性约束**：`(product_model, hw_batch, prod_year, prod_month, prod_day, seq)` 唯一，对应「当日 + 产品型号 + 硬件批次」维度。
 
