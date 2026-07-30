@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDateEdit,
     QDialog,
+    QDialogButtonBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -30,6 +31,8 @@ from PySide6.QtWidgets import (
 from sn_manager.app.services import SnService
 from sn_manager.core.errors import SnError
 from sn_manager.core.status import Status
+from sn_manager.app.export import export_burn_and_mark_used, export_excel
+from sn_manager.gui.export_dialog import ExportDialog, ExportMode
 from sn_manager.gui.generate_dialog import GenerateDialog
 from sn_manager.gui.master_data_dialog import MasterDataDialog
 
@@ -59,6 +62,53 @@ _STATUS_FILTER_OPTIONS: list[tuple[str, str | None]] = [
     ("已使用", Status.USED.value),
     ("作废", Status.VOID.value),
 ]
+
+_CHANGE_STATUS_OPTIONS: list[tuple[str, Status]] = [
+    ("未使用", Status.UNUSED),
+    ("已使用", Status.USED),
+    ("作废", Status.VOID),
+]
+
+
+class ChangeStatusDialog(QDialog):
+    """选择目标状态；Accepted 后可通过 status() 读取。"""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._status: Status | None = None
+        self.setWindowTitle("改状态")
+        self._build_ui()
+
+    def status(self) -> Status | None:
+        return self._status
+
+    def _build_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        form = QFormLayout()
+
+        self._status_combo = QComboBox()
+        for label, _ in _CHANGE_STATUS_OPTIONS:
+            self._status_combo.addItem(label)
+        form.addRow("目标状态", self._status_combo)
+        layout.addLayout(form)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        ok_btn = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        cancel_btn = buttons.button(QDialogButtonBox.StandardButton.Cancel)
+        if ok_btn is not None:
+            ok_btn.setText("确定")
+        if cancel_btn is not None:
+            cancel_btn.setText("取消")
+        buttons.accepted.connect(self._on_accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def _on_accept(self) -> None:
+        _, status = _CHANGE_STATUS_OPTIONS[self._status_combo.currentIndex()]
+        self._status = status
+        self.accept()
 
 
 class MainWindow(QMainWindow):
@@ -244,6 +294,49 @@ class MainWindow(QMainWindow):
                 sns.append(str(sn))
         return sns
 
+    def _selected_rows(self) -> list[dict[str, Any]]:
+        sns = self._selected_sns()
+        if not sns:
+            return []
+        by_sn = {row["sn"]: row for row in self._rows if row.get("sn") in sns}
+        return [by_sn[sn] for sn in sns if sn in by_sn]
+
+    def _refresh_rows_for_sns(self, sns: list[str]) -> None:
+        if not sns:
+            return
+        updated: dict[str, dict[str, Any]] = {}
+        for sn in sns:
+            rows = self._service.filter(sn=sn)
+            if rows:
+                updated[sn] = rows[0]
+
+        for row_idx in range(self._table.rowCount()):
+            item = self._table.item(row_idx, 0)
+            if item is None:
+                continue
+            sn = str(item.data(Qt.ItemDataRole.UserRole) or "")
+            if sn not in updated:
+                continue
+            row = updated[sn]
+            for col_idx, (key, _) in enumerate(_TABLE_COLUMNS):
+                value = row.get(key, "")
+                if key == "status":
+                    display = _STATUS_LABELS.get(str(value), str(value))
+                else:
+                    display = str(value)
+                cell = self._table.item(row_idx, col_idx)
+                if cell is None:
+                    cell = QTableWidgetItem(display)
+                    if col_idx == 0:
+                        cell.setData(Qt.ItemDataRole.UserRole, sn)
+                    self._table.setItem(row_idx, col_idx, cell)
+                else:
+                    cell.setText(display)
+
+        self._rows = [
+            updated[r["sn"]] if r.get("sn") in updated else r for r in self._rows
+        ]
+
     def _update_action_buttons(self) -> None:
         has_selection = bool(self._selected_sns())
         self._change_status_btn.setEnabled(has_selection)
@@ -277,7 +370,44 @@ class MainWindow(QMainWindow):
         dlg.exec()
 
     def _on_change_status(self) -> None:
-        QMessageBox.information(self, "改状态", "改状态功能将在后续任务中实现。")
+        sns = self._selected_sns()
+        if not sns:
+            return
+        dlg = ChangeStatusDialog(parent=self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        status = dlg.status()
+        if status is None:
+            return
+        self._service.set_status(sns, status)
+        self._refresh_rows_for_sns(sns)
 
     def _on_export(self) -> None:
-        QMessageBox.information(self, "导出", "导出功能将在后续任务中实现。")
+        rows = self._selected_rows()
+        if not rows:
+            return
+        dlg = ExportDialog(parent=self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        params = dlg.params()
+        if params is None:
+            return
+        try:
+            if params.mode is ExportMode.EXCEL:
+                if params.excel_path is None:
+                    return
+                export_excel(rows, params.excel_path)
+            else:
+                if params.burn_directory is None:
+                    return
+                sns = [str(row["sn"]) for row in rows]
+                export_burn_and_mark_used(
+                    self._service,
+                    sns,
+                    params.burn_directory,
+                    mark_used=params.mark_used,
+                )
+                if params.mark_used:
+                    self._refresh_rows_for_sns(sns)
+        except OSError as exc:
+            QMessageBox.warning(self, "导出失败", str(exc))
