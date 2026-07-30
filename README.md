@@ -5,6 +5,9 @@
 ## 运行环境
 
 - **操作系统**：Windows 或 Linux 单机
+- **中文字体（Linux/WSL 必看）**：界面为中文。若中文显示为乱码或方框，说明系统缺少中文字体。任选其一：
+  - `sudo apt install fonts-noto-cjk`（推荐）
+  - 或将 `NotoSansCJK-Regular.ttc` 放到 `~/.local/share/fonts/` 后执行 `fc-cache -f`
 - **数据文件**：与可执行文件同目录的 `sn_manager.db`（首次运行自动创建）
 - **开发运行**（需 Python ≥3.12 与 [uv](https://docs.astral.sh/uv/)）：
 
