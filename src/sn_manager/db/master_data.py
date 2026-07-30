@@ -6,6 +6,7 @@ import sqlite3
 from typing import Any
 
 from sn_manager.core.errors import ValidationError
+from sn_manager.core.version_a import normalize_alnum
 
 _MASTER_TABLES = frozenset({"product_models", "hardware_batches", "factories", "markets"})
 
@@ -15,6 +16,26 @@ _REF_COLUMN: dict[str, str] = {
     "factories": "factory",
     "markets": "market",
 }
+
+
+def validate_product_code(code: str) -> str:
+    """校验产品型号编码（5 位字母数字）。"""
+    return normalize_alnum(code, "产品型号", 5)
+
+
+def validate_hardware_batch_code(code: str) -> str:
+    """校验硬件批次编码（2 位字母数字）。"""
+    return normalize_alnum(code, "硬件批次", 2)
+
+
+def validate_factory_code(code: str) -> str:
+    """校验生产单位编码（1 位字母数字）。"""
+    return normalize_alnum(code, "生产单位", 1)
+
+
+def validate_market_code(code: str) -> str:
+    """校验投放市场编码（1 位字母数字）。"""
+    return normalize_alnum(code, "投放市场", 1)
 
 
 def list_codes(conn: sqlite3.Connection, table: str) -> list[dict[str, Any]]:
@@ -41,46 +62,60 @@ def list_markets(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     return list_codes(conn, "markets")
 
 
-def upsert_product(conn: sqlite3.Connection, code: str) -> None:
-    """插入或更新产品型号（编码转大写）。"""
-    normalized = code.upper()
+def _maybe_commit(conn: sqlite3.Connection, *, commit: bool) -> None:
+    if commit:
+        conn.commit()
+
+
+def upsert_product(conn: sqlite3.Connection, code: str, *, commit: bool = True) -> None:
+    """插入或更新产品型号（编码转大写并校验）。"""
+    normalized = validate_product_code(code)
     conn.execute(
         "INSERT OR REPLACE INTO product_models (code) VALUES (?)",
         (normalized,),
     )
-    conn.commit()
+    _maybe_commit(conn, commit=commit)
 
 
 def add_product_model(conn: sqlite3.Connection, code: str) -> None:
     upsert_product(conn, code)
 
 
-def upsert_hardware_batch(conn: sqlite3.Connection, code: str) -> None:
+def upsert_hardware_batch(
+    conn: sqlite3.Connection, code: str, *, commit: bool = True
+) -> None:
+    normalized = validate_hardware_batch_code(code)
     conn.execute(
         "INSERT OR REPLACE INTO hardware_batches (code) VALUES (?)",
-        (code,),
+        (normalized,),
     )
-    conn.commit()
+    _maybe_commit(conn, commit=commit)
 
 
 def add_hardware_batch(conn: sqlite3.Connection, code: str) -> None:
     upsert_hardware_batch(conn, code)
 
 
-def upsert_factory(conn: sqlite3.Connection, code: str, name: str) -> None:
+def upsert_factory(
+    conn: sqlite3.Connection, code: str, name: str, *, commit: bool = True
+) -> None:
+    normalized = validate_factory_code(code)
     conn.execute(
         "INSERT OR REPLACE INTO factories (code, name) VALUES (?, ?)",
-        (code, name),
+        (normalized, name),
     )
-    conn.commit()
+    _maybe_commit(conn, commit=commit)
 
 
-def upsert_market(conn: sqlite3.Connection, code: str, name: str) -> None:
+def upsert_market(
+    conn: sqlite3.Connection, code: str, name: str, *, commit: bool = True
+) -> None:
+    normalized = validate_market_code(code)
     conn.execute(
         "INSERT OR REPLACE INTO markets (code, name) VALUES (?, ?)",
-        (code, name),
+        (normalized, name),
     )
-    conn.commit()
+    _maybe_commit(conn, commit=commit)
 
 
 def _assert_not_referenced(conn: sqlite3.Connection, table: str, code: str) -> None:
@@ -93,25 +128,33 @@ def _assert_not_referenced(conn: sqlite3.Connection, table: str, code: str) -> N
         raise ValidationError(f"编码 {code} 已被序列号引用，无法删除")
 
 
-def delete_product_model(conn: sqlite3.Connection, code: str) -> None:
-    _assert_not_referenced(conn, "product_models", code)
-    conn.execute("DELETE FROM product_models WHERE code = ?", (code,))
-    conn.commit()
+def delete_product_model(
+    conn: sqlite3.Connection, code: str, *, commit: bool = True
+) -> None:
+    normalized = code.upper()
+    _assert_not_referenced(conn, "product_models", normalized)
+    conn.execute("DELETE FROM product_models WHERE code = ?", (normalized,))
+    _maybe_commit(conn, commit=commit)
 
 
-def delete_hardware_batch(conn: sqlite3.Connection, code: str) -> None:
-    _assert_not_referenced(conn, "hardware_batches", code)
-    conn.execute("DELETE FROM hardware_batches WHERE code = ?", (code,))
-    conn.commit()
+def delete_hardware_batch(
+    conn: sqlite3.Connection, code: str, *, commit: bool = True
+) -> None:
+    normalized = code.upper()
+    _assert_not_referenced(conn, "hardware_batches", normalized)
+    conn.execute("DELETE FROM hardware_batches WHERE code = ?", (normalized,))
+    _maybe_commit(conn, commit=commit)
 
 
-def delete_factory(conn: sqlite3.Connection, code: str) -> None:
-    _assert_not_referenced(conn, "factories", code)
-    conn.execute("DELETE FROM factories WHERE code = ?", (code,))
-    conn.commit()
+def delete_factory(conn: sqlite3.Connection, code: str, *, commit: bool = True) -> None:
+    normalized = code.upper()
+    _assert_not_referenced(conn, "factories", normalized)
+    conn.execute("DELETE FROM factories WHERE code = ?", (normalized,))
+    _maybe_commit(conn, commit=commit)
 
 
-def delete_market(conn: sqlite3.Connection, code: str) -> None:
-    _assert_not_referenced(conn, "markets", code)
-    conn.execute("DELETE FROM markets WHERE code = ?", (code,))
-    conn.commit()
+def delete_market(conn: sqlite3.Connection, code: str, *, commit: bool = True) -> None:
+    normalized = code.upper()
+    _assert_not_referenced(conn, "markets", normalized)
+    conn.execute("DELETE FROM markets WHERE code = ?", (normalized,))
+    _maybe_commit(conn, commit=commit)

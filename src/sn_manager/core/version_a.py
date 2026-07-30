@@ -66,7 +66,7 @@ def _code_to_day(code: str) -> int:
     return idx + 1
 
 
-def _normalize_alnum(value: str, field_name: str, length: int) -> str:
+def normalize_alnum(value: str, field_name: str, length: int) -> str:
     normalized = value.strip().upper()
     if len(normalized) != length:
         raise ValidationError(f"{field_name}长度必须为{length}")
@@ -86,10 +86,10 @@ def validate_generation_input(
     """校验生成输入并返回规范化分量。"""
     return GenerationInput(
         version=VERSION_A,
-        product_model=_normalize_alnum(product_model, "产品型号", 5),
-        hw_batch=_normalize_alnum(hw_batch, "硬件批次", 2),
-        factory=_normalize_alnum(factory, "生产单位", 1),
-        market=_normalize_alnum(market, "投放市场", 1),
+        product_model=normalize_alnum(product_model, "产品型号", 5),
+        hw_batch=normalize_alnum(hw_batch, "硬件批次", 2),
+        factory=normalize_alnum(factory, "生产单位", 1),
+        market=normalize_alnum(market, "投放市场", 1),
         prod_date=prod_date,
     )
 
@@ -97,10 +97,10 @@ def validate_generation_input(
 def _validate_fields(fields: SnFields) -> None:
     if fields.version != VERSION_A:
         raise ValidationError(f"不支持的 SN 版本: {fields.version}")
-    _normalize_alnum(fields.product_model, "产品型号", 5)
-    _normalize_alnum(fields.hw_batch, "硬件批次", 2)
-    _normalize_alnum(fields.factory, "生产单位", 1)
-    _normalize_alnum(fields.market, "投放市场", 1)
+    normalize_alnum(fields.product_model, "产品型号", 5)
+    normalize_alnum(fields.hw_batch, "硬件批次", 2)
+    normalize_alnum(fields.factory, "生产单位", 1)
+    normalize_alnum(fields.market, "投放市场", 1)
     if fields.prod_year < 2000:
         raise ValidationError(f"无效生产年份: {fields.prod_year}")
     try:

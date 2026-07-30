@@ -55,3 +55,24 @@ def test_delete_unreferenced_product(tmp_path: Path):
     md.add_product_model(conn, "ABC12")
     md.delete_product_model(conn, "ABC12")
     assert md.list_product_models(conn) == []
+
+
+def test_delete_product_accepts_lowercase_code(tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    md.add_product_model(conn, "ABC12")
+    md.delete_product_model(conn, "abc12")
+    assert md.list_product_models(conn) == []
+
+
+def test_upsert_rejects_invalid_product_code(tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    with pytest.raises(ValidationError, match="产品型号长度必须为5"):
+        md.upsert_product(conn, "ABC")
+    assert md.list_product_models(conn) == []
+
+
+def test_upsert_rejects_non_alnum_batch(tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    with pytest.raises(ValidationError, match="硬件批次只能包含字母和数字"):
+        md.upsert_hardware_batch(conn, "0!")
+    assert md.list_hardware_batches(conn) == []
