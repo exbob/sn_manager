@@ -6,7 +6,7 @@
 
 ## 1. 背景与目标
 
-产线单机 Windows 桌面工具：本地生成、查询、管理设备序列号（SN），数据存本机，无需联网。Linux 下用 Python + uv 开发，PyInstaller 打包为 Windows exe。
+产线单机桌面工具（Windows 或 Linux）：本地生成、查询、管理设备序列号（SN），数据存本机，无需联网。用 Python + uv 开发，PyInstaller **分别**打包 Windows 与 Linux 可执行文件。
 
 首期只实现 SN **Version A**（17 字符），版本首字符预留扩展。
 
@@ -14,9 +14,9 @@
 
 | 项 | 决策 |
 | ---- | ------ |
-| 部署 | 单机本地，无多机共享、无登录 |
+| 部署 | 单机本地（Windows 或 Linux），无多机共享、无登录 |
 | UI | PySide6；主界面=查询；生成/主数据为对话框 |
-| 打包 | PyInstaller |
+| 打包 | PyInstaller 产出 Windows `.exe` 与 Linux 可执行文件（宜在目标 OS / 对应 CI 上构建） |
 | 存储 | SQLite 单文件 `sn_manager.db` |
 | 生成 | 对话框；统一「数量 N」；N=1 为单个；成功后右侧展示并默认选中 |
 | 主数据 | 对话框维护；生成时下拉 + 可临时新增并保存；确认生效/取消作废 |
@@ -49,7 +49,7 @@ sn_gui (PySide6)
 
 ### 3.3 数据文件位置
 
-优先：与 exe 同目录的 `sn_manager.db`（开发态可为项目数据目录）。启动时若无法创建/打开，中文报错并给出路径。
+优先：与可执行文件同目录的 `sn_manager.db`（开发态可为项目数据目录）。启动时若无法创建/打开，中文报错并给出路径。Windows / Linux 均采用同一「相对可执行文件目录」策略，便于说明与备份。
 
 ## 4. 数据库设计
 
@@ -132,7 +132,8 @@ sn_gui (PySide6)
 ## 7. 打包与交付
 
 - 开发：`uv` 管理依赖与虚拟环境
-- 交付：PyInstaller 生成 Windows exe；说明备份 `sn_manager.db` 即可迁移历史数据
+- 交付：PyInstaller 分别生成 Windows `.exe` 与 Linux 可执行文件；说明备份 `sn_manager.db` 即可在同平台迁移历史数据
+- 构建：在 Windows 环境构建 Windows 包，在 Linux 环境构建 Linux 包（或等价 CI 矩阵）；不把跨 OS 交叉编译作为首期要求
 
 ## 8. 测试策略
 
@@ -146,7 +147,7 @@ sn_gui (PySide6)
 
 **手工**
 
-- Windows exe 启动、库路径、典型路径：生成 → 选中 → 导出 txt → used → 筛选查询 → 导出 Excel
+- Windows / Linux 可执行文件各自启动、库路径、典型路径：生成 → 选中 → 导出 txt → used → 筛选查询 → 导出 Excel
 ## 9. 明确不在首期范围
 
 - 多机共享序号池 / 服务端
@@ -159,6 +160,6 @@ sn_gui (PySide6)
 
 以下实现阶段选定即可，不改变产品行为：
 
+- 精确的可执行文件旁数据路径在两平台的边界情况（只读安装目录等；需在安装说明中写清）
 - ORM（如 SQLAlchemy）vs 手写 SQL
 - Excel 库（如 openpyxl）
-- 精确的「exe 旁 vs AppData」路径策略（需在安装说明中写死一种）
