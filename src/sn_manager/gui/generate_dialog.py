@@ -42,6 +42,7 @@ class GenerateDialog(QDialog):
         self._service = service
         self._params: GenerateParams | None = None
         self.setWindowTitle("生成序列号")
+        self.setMinimumWidth(360)
         self._build_ui()
         self._load_master_data()
 
