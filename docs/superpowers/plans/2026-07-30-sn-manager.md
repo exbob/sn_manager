@@ -210,8 +210,8 @@ def test_encode_prd_example():
         factory="2",
         market="1",
         prod_year=2026,
-        prod_month=12,
-        prod_day=1,
+        prod_month=1,
+        prod_day=12,
         seq=0xF04,
     )
     assert encode_version_a(fields) == "ASVG140521261CF04"
@@ -221,8 +221,8 @@ def test_decode_prd_example():
     f = decode_version_a("ASVG140521261CF04")
     assert f.product_model == "SVG14"
     assert f.prod_year == 2026
-    assert f.prod_month == 12
-    assert f.prod_day == 1
+    assert f.prod_month == 1
+    assert f.prod_day == 12
     assert f.seq == 0xF04
 
 
@@ -522,7 +522,7 @@ def test_generate_and_filter(tmp_path: Path):
         hw_batch="05",
         factory="2",
         market="1",
-        prod_date=date(2026, 12, 1),
+        prod_date=date(2026, 1, 12),
         count=1,
     )
     assert len(rows) == 1
@@ -573,8 +573,8 @@ def test_excel_and_burn(tmp_path: Path):
             "factory": "2",
             "market": "1",
             "prod_year": 2026,
-            "prod_month": 12,
-            "prod_day": 1,
+            "prod_month": 1,
+            "prod_day": 12,
             "seq": 0xF04,
             "status": "unused",
             "created_at": "t",

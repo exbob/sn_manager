@@ -114,8 +114,8 @@ def _validate_fields(fields: SnFields) -> None:
 def encode_version_a(fields: SnFields) -> str:
     _validate_fields(fields)
     year_part = f"{fields.prod_year % 100:02d}"
-    day_part = day_to_code(fields.prod_day)
     month_part = month_to_code(fields.prod_month)
+    day_part = day_to_code(fields.prod_day)
     seq_part = f"{fields.seq:03X}"
     return (
         f"{fields.version}"
@@ -124,8 +124,8 @@ def encode_version_a(fields: SnFields) -> str:
         f"{fields.factory.upper()}"
         f"{fields.market.upper()}"
         f"{year_part}"
-        f"{day_part}"
         f"{month_part}"
+        f"{day_part}"
         f"{seq_part}"
     )
 
@@ -143,8 +143,8 @@ def decode_version_a(sn: str) -> SnFields:
     factory = sn[8]
     market = sn[9]
     year_part = sn[10:12]
-    day_code = sn[12]
-    month_code = sn[13]
+    month_code = sn[12]
+    day_code = sn[13]
     seq_part = sn[14:17]
 
     for label, value, length in (

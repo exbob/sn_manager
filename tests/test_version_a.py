@@ -12,6 +12,7 @@ from sn_manager.core.version_a import (
 
 
 def test_encode_prd_example():
+    # ASVG140521261CF04: 年26、月1、日C(12) → 2026-01-12
     fields = SnFields(
         version="A",
         product_model="SVG14",
@@ -19,8 +20,8 @@ def test_encode_prd_example():
         factory="2",
         market="1",
         prod_year=2026,
-        prod_month=12,
-        prod_day=1,
+        prod_month=1,
+        prod_day=12,
         seq=0xF04,
     )
     assert encode_version_a(fields) == "ASVG140521261CF04"
@@ -30,8 +31,8 @@ def test_decode_prd_example():
     f = decode_version_a("ASVG140521261CF04")
     assert f.product_model == "SVG14"
     assert f.prod_year == 2026
-    assert f.prod_month == 12
-    assert f.prod_day == 1
+    assert f.prod_month == 1
+    assert f.prod_day == 12
     assert f.seq == 0xF04
 
 
