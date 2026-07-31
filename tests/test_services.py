@@ -11,6 +11,8 @@ from sn_manager.db.connection import connect
 
 def test_generate_and_filter(tmp_path: Path):
     conn = connect(tmp_path / "t.db")
+    md.upsert_product(conn, "SVG14", "示例外壳机")
+    md.upsert_hardware_batch(conn, "05", "第五批")
     svc = SnService(conn)
     rows = svc.generate(
         product_model="svg14",
@@ -24,6 +26,22 @@ def test_generate_and_filter(tmp_path: Path):
     assert rows[0]["sn"] == "ASVG140521261C000"
     found = svc.filter(product_model="SVG14")
     assert len(found) == 1
+
+
+def test_generate_does_not_insert_master_data(tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    svc = SnService(conn)
+    assert md.list_product_models(conn) == []
+    svc.generate(
+        product_model="SVG14",
+        hw_batch="05",
+        factory="2",
+        market="1",
+        prod_date=date(2026, 1, 12),
+        count=1,
+    )
+    assert md.list_product_models(conn) == []
+    assert md.list_hardware_batches(conn) == []
 
 
 def _insert_serial_referencing_svg14(conn) -> None:
@@ -53,13 +71,13 @@ def _insert_serial_referencing_svg14(conn) -> None:
 
 def test_replace_master_data_rolls_back_on_referenced_delete(tmp_path: Path):
     conn = connect(tmp_path / "t.db")
-    md.add_product_model(conn, "SVG14")
-    md.add_product_model(conn, "OTHER")
+    md.upsert_product(conn, "SVG14", "示例外壳机")
+    md.upsert_product(conn, "OTHER", "其它")
     _insert_serial_referencing_svg14(conn)
 
     svc = SnService(conn)
     snapshot = MasterSnapshot(
-        product_models=["OTHER"],
+        product_models=[("OTHER", "其它")],
         hardware_batches=[],
         factories=[("1", "自己生产"), ("2", "赛威思")],
         markets=[("0", "不限"), ("1", "中国"), ("2", "韩国"), ("3", "美国")],
@@ -76,7 +94,7 @@ def test_replace_master_data_rejects_invalid_product_code(tmp_path: Path):
     svc = SnService(conn)
     before = md.list_product_models(conn)
     snapshot = MasterSnapshot(
-        product_models=["ABC"],
+        product_models=[("ABC", "短")],
         hardware_batches=[],
         factories=[("1", "自己生产"), ("2", "赛威思")],
         markets=[("0", "不限"), ("1", "中国"), ("2", "韩国"), ("3", "美国")],
@@ -84,3 +102,16 @@ def test_replace_master_data_rejects_invalid_product_code(tmp_path: Path):
     with pytest.raises(ValidationError, match="产品型号长度必须为5"):
         svc.replace_master_data(snapshot)
     assert md.list_product_models(conn) == before
+
+
+def test_replace_master_data_rejects_long_name(tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    svc = SnService(conn)
+    snapshot = MasterSnapshot(
+        product_models=[("SVG14", "中" * 65)],
+        hardware_batches=[],
+        factories=[("1", "自己生产"), ("2", "赛威思")],
+        markets=[("0", "不限"), ("1", "中国"), ("2", "韩国"), ("3", "美国")],
+    )
+    with pytest.raises(ValidationError, match="名称长度不能超过64"):
+        svc.replace_master_data(snapshot)
