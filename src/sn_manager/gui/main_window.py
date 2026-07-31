@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from PySide6.QtCore import QDate, QItemSelectionModel, Qt
 from PySide6.QtWidgets import (
@@ -43,7 +42,8 @@ from sn_manager.gui.no_focus_delegate import (
     install_no_focus_delegate,
 )
 
-_BEIJING = ZoneInfo("Asia/Shanghai")
+# 北京时间固定 UTC+8（无夏令时）；避免 Windows/PyInstaller 依赖 tzdata。
+_BEIJING = timezone(timedelta(hours=8))
 
 
 def format_display_timestamp(raw: str, *, use_beijing: bool) -> str:
