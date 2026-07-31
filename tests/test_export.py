@@ -5,7 +5,12 @@ from unittest.mock import MagicMock
 import pytest
 from openpyxl import load_workbook
 
-from sn_manager.app.export import export_burn_and_mark_used, export_burn_txt, export_excel
+from sn_manager.app.export import (
+    export_burn_and_mark_used,
+    export_burn_txt,
+    export_excel,
+    export_selected_and_mark_used,
+)
 from sn_manager.app.services import SnService
 from sn_manager.core.status import Status
 from sn_manager.db.connection import connect
@@ -87,3 +92,65 @@ def test_export_burn_failure_does_not_mark_used(tmp_path: Path, monkeypatch):
         )
 
     svc.set_status.assert_not_called()
+
+
+def test_export_selected_both_mark_used(tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    svc = SnService(conn)
+    rows = svc.generate(
+        product_model="SVG14",
+        hw_batch="05",
+        factory="2",
+        market="1",
+        prod_date=date(2026, 1, 12),
+        count=1,
+    )
+    sn = rows[0]["sn"]
+    xlsx = tmp_path / "20260731152950.xlsx"
+
+    export_selected_and_mark_used(
+        svc,
+        rows,
+        burn=True,
+        excel=True,
+        export_directory=tmp_path,
+        mark_used=True,
+        excel_path=xlsx,
+    )
+
+    assert (tmp_path / f"sn_{sn}.txt").read_text(encoding="utf-8") == sn
+    assert load_workbook(xlsx).active["A2"].value == sn
+    assert svc.filter(sn=sn)[0]["status"] == Status.USED.value
+
+
+def test_export_selected_excel_failure_does_not_mark_used(tmp_path: Path, monkeypatch):
+    conn = connect(tmp_path / "t.db")
+    svc = SnService(conn)
+    rows = svc.generate(
+        product_model="SVG14",
+        hw_batch="05",
+        factory="2",
+        market="1",
+        prod_date=date(2026, 1, 12),
+        count=1,
+    )
+    sn = rows[0]["sn"]
+
+    def boom(*_a, **_k):
+        raise OSError("excel failed")
+
+    monkeypatch.setattr("sn_manager.app.export.export_excel", boom)
+
+    with pytest.raises(OSError):
+        export_selected_and_mark_used(
+            svc,
+            rows,
+            burn=True,
+            excel=True,
+            export_directory=tmp_path,
+            mark_used=True,
+            excel_path=tmp_path / "out.xlsx",
+        )
+
+    assert (tmp_path / f"sn_{sn}.txt").exists()
+    assert svc.filter(sn=sn)[0]["status"] == Status.UNUSED.value

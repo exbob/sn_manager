@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -50,6 +51,31 @@ def export_burn_txt(sns: list[str], directory: Path) -> list[Path]:
     return paths
 
 
+def export_selected_and_mark_used(
+    svc: SnService,
+    rows: list[dict[str, Any]],
+    *,
+    burn: bool,
+    excel: bool,
+    export_directory: Path,
+    mark_used: bool,
+    excel_path: Path | None = None,
+) -> None:
+    """按勾选写出；全部成功后可选标 used。excel_path 由调用方传入（含时间戳文件名）。"""
+    if not burn and not excel:
+        raise ValueError("at least one export type required")
+    sns = [str(row["sn"]) for row in rows]
+    if burn:
+        export_burn_txt(sns, export_directory)
+    if excel:
+        path = excel_path or (
+            export_directory / datetime.now().strftime("%Y%m%d%H%M%S.xlsx")
+        )
+        export_excel(rows, path)
+    if mark_used:
+        svc.set_status(sns, Status.USED)
+
+
 def export_burn_and_mark_used(
     svc: SnService,
     sns: list[str],
@@ -58,6 +84,12 @@ def export_burn_and_mark_used(
     mark_used: bool,
 ) -> None:
     """先写完全部烧写文件，成功后再可选批量标为已使用。"""
-    export_burn_txt(sns, directory)
-    if mark_used:
-        svc.set_status(sns, Status.USED)
+    rows = [{"sn": sn} for sn in sns]
+    export_selected_and_mark_used(
+        svc,
+        rows,
+        burn=True,
+        excel=False,
+        export_directory=directory,
+        mark_used=mark_used,
+    )
