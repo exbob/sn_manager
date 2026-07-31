@@ -1,9 +1,8 @@
-"""导出对话框：Excel 或烧写目录。"""
+"""导出对话框：烧写与/或 Excel，共用导出目录。"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 
 from PySide6.QtWidgets import (
@@ -16,31 +15,25 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
-    QRadioButton,
     QVBoxLayout,
     QWidget,
 )
 
-
-class ExportMode(Enum):
-    """导出方式。"""
-
-    EXCEL = "excel"
-    BURN = "burn"
+from sn_manager.app.paths import app_dir
 
 
 @dataclass(frozen=True)
 class ExportParams:
     """用户确认后的导出参数。"""
 
-    mode: ExportMode
-    excel_path: Path | None = None
-    burn_directory: Path | None = None
-    mark_used: bool = False
+    burn: bool
+    excel: bool
+    export_directory: Path
+    mark_used: bool
 
 
 class ExportDialog(QDialog):
-    """选择 Excel 文件或烧写目录；Accepted 后可通过 params() 读取参数。"""
+    """选择烧写与/或 Excel；共用导出目录；Accepted 后可通过 params() 读取参数。"""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -54,37 +47,27 @@ class ExportDialog(QDialog):
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
 
-        self._excel_radio = QRadioButton("导出 Excel (.xlsx)")
-        self._burn_radio = QRadioButton("导出烧写文本 (sn_<SN>.txt)")
-        self._excel_radio.setChecked(True)
-        layout.addWidget(self._excel_radio)
-        layout.addWidget(self._burn_radio)
+        self._burn_check = QCheckBox("烧写文本 (sn_<SN>.txt)")
+        self._excel_check = QCheckBox("导出 Excel (.xlsx)")
+        self._burn_check.setChecked(True)
+        self._excel_check.setChecked(False)
+        layout.addWidget(self._burn_check)
+        layout.addWidget(self._excel_check)
 
         form = QFormLayout()
-
-        excel_row = QWidget()
-        excel_layout = QHBoxLayout(excel_row)
-        excel_layout.setContentsMargins(0, 0, 0, 0)
-        self._excel_path_edit = QLineEdit()
-        self._excel_browse_btn = QPushButton("浏览…")
-        self._excel_browse_btn.clicked.connect(self._browse_excel)
-        excel_layout.addWidget(self._excel_path_edit)
-        excel_layout.addWidget(self._excel_browse_btn)
-        form.addRow("Excel 文件", excel_row)
-
-        burn_row = QWidget()
-        burn_layout = QHBoxLayout(burn_row)
-        burn_layout.setContentsMargins(0, 0, 0, 0)
-        self._burn_dir_edit = QLineEdit()
-        self._burn_browse_btn = QPushButton("浏览…")
-        self._burn_browse_btn.clicked.connect(self._browse_burn_dir)
-        burn_layout.addWidget(self._burn_dir_edit)
-        burn_layout.addWidget(self._burn_browse_btn)
-        form.addRow("烧写目录", burn_row)
-
+        path_row = QWidget()
+        path_layout = QHBoxLayout(path_row)
+        path_layout.setContentsMargins(0, 0, 0, 0)
+        self._path_edit = QLineEdit(str(app_dir()))
+        self._browse_btn = QPushButton("浏览…")
+        self._browse_btn.clicked.connect(self._browse_directory)
+        path_layout.addWidget(self._path_edit)
+        path_layout.addWidget(self._browse_btn)
+        form.addRow("导出路径", path_row)
         layout.addLayout(form)
 
         self._mark_used_check = QCheckBox("导出后标为已使用")
+        self._mark_used_check.setChecked(True)
         layout.addWidget(self._mark_used_check)
 
         buttons = QDialogButtonBox(
@@ -100,52 +83,25 @@ class ExportDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
-        self._excel_radio.toggled.connect(self._update_mode_ui)
-        self._update_mode_ui()
-
-    def _update_mode_ui(self) -> None:
-        excel_mode = self._excel_radio.isChecked()
-        self._excel_path_edit.setEnabled(excel_mode)
-        self._excel_browse_btn.setEnabled(excel_mode)
-        self._burn_dir_edit.setEnabled(not excel_mode)
-        self._burn_browse_btn.setEnabled(not excel_mode)
-        self._mark_used_check.setEnabled(not excel_mode)
-
-    def _browse_excel(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            "选择 Excel 文件",
-            "",
-            "Excel 文件 (*.xlsx)",
-        )
+    def _browse_directory(self) -> None:
+        path = QFileDialog.getExistingDirectory(self, "选择导出路径")
         if path:
-            if not path.lower().endswith(".xlsx"):
-                path = f"{path}.xlsx"
-            self._excel_path_edit.setText(path)
-
-    def _browse_burn_dir(self) -> None:
-        path = QFileDialog.getExistingDirectory(self, "选择烧写目录")
-        if path:
-            self._burn_dir_edit.setText(path)
+            self._path_edit.setText(path)
 
     def _on_accept(self) -> None:
-        if self._excel_radio.isChecked():
-            text = self._excel_path_edit.text().strip()
-            if not text:
-                QMessageBox.warning(self, "导出", "请选择 Excel 文件路径。")
-                return
-            self._params = ExportParams(
-                mode=ExportMode.EXCEL,
-                excel_path=Path(text),
-            )
-        else:
-            text = self._burn_dir_edit.text().strip()
-            if not text:
-                QMessageBox.warning(self, "导出", "请选择烧写目录。")
-                return
-            self._params = ExportParams(
-                mode=ExportMode.BURN,
-                burn_directory=Path(text),
-                mark_used=self._mark_used_check.isChecked(),
-            )
+        burn = self._burn_check.isChecked()
+        excel = self._excel_check.isChecked()
+        if not burn and not excel:
+            QMessageBox.warning(self, "导出", "请至少选择一种导出方式。")
+            return
+        text = self._path_edit.text().strip()
+        if not text:
+            QMessageBox.warning(self, "导出", "请选择导出路径。")
+            return
+        self._params = ExportParams(
+            burn=burn,
+            excel=excel,
+            export_directory=Path(text),
+            mark_used=self._mark_used_check.isChecked(),
+        )
         self.accept()

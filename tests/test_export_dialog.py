@@ -1,43 +1,42 @@
 from datetime import date
 from pathlib import Path
+import re
 
 from openpyxl import load_workbook
 from PySide6.QtWidgets import QDialog, QMessageBox
 
+from sn_manager.app.paths import app_dir
 from sn_manager.app.services import SnService
 from sn_manager.core.status import Status
 from sn_manager.db.connection import connect
-from sn_manager.gui.export_dialog import ExportDialog, ExportMode, ExportParams
+from sn_manager.gui.export_dialog import ExportDialog, ExportParams
 from sn_manager.gui.main_window import ChangeStatusDialog, MainWindow
 
 
-def test_export_dialog_returns_excel_params_on_accept(qapp):
+def test_export_dialog_defaults(qapp):
     dlg = ExportDialog()
-    dlg._excel_radio.setChecked(True)
-    dlg._excel_path_edit.setText("/tmp/out.xlsx")
+    assert dlg._burn_check.isChecked()
+    assert not dlg._excel_check.isChecked()
+    assert dlg._mark_used_check.isChecked()
+    assert dlg._path_edit.text() == str(app_dir())
+
+
+def test_export_dialog_returns_params_on_accept(qapp):
+    dlg = ExportDialog()
+    dlg._burn_check.setChecked(True)
+    dlg._excel_check.setChecked(True)
+    dlg._path_edit.setText("/tmp/out")
+    dlg._mark_used_check.setChecked(False)
     dlg._on_accept()
-    params = dlg.params()
-    assert params == ExportParams(
-        mode=ExportMode.EXCEL,
-        excel_path=Path("/tmp/out.xlsx"),
+    assert dlg.params() == ExportParams(
+        burn=True,
+        excel=True,
+        export_directory=Path("/tmp/out"),
+        mark_used=False,
     )
 
 
-def test_export_dialog_returns_burn_params_on_accept(qapp):
-    dlg = ExportDialog()
-    dlg._burn_radio.setChecked(True)
-    dlg._burn_dir_edit.setText("/tmp/burn")
-    dlg._mark_used_check.setChecked(True)
-    dlg._on_accept()
-    params = dlg.params()
-    assert params == ExportParams(
-        mode=ExportMode.BURN,
-        burn_directory=Path("/tmp/burn"),
-        mark_used=True,
-    )
-
-
-def test_export_dialog_rejects_empty_excel_path(qapp, monkeypatch):
+def test_export_dialog_rejects_no_type(qapp, monkeypatch):
     dlg = ExportDialog()
     warnings: list[tuple] = []
 
@@ -45,6 +44,22 @@ def test_export_dialog_rejects_empty_excel_path(qapp, monkeypatch):
         warnings.append(args)
 
     monkeypatch.setattr(QMessageBox, "warning", _capture_warning)
+    dlg._burn_check.setChecked(False)
+    dlg._excel_check.setChecked(False)
+    dlg._on_accept()
+    assert dlg.params() is None
+    assert warnings
+
+
+def test_export_dialog_rejects_empty_path(qapp, monkeypatch):
+    dlg = ExportDialog()
+    warnings: list[tuple] = []
+
+    def _capture_warning(*args):
+        warnings.append(args)
+
+    monkeypatch.setattr(QMessageBox, "warning", _capture_warning)
+    dlg._path_edit.setText("   ")
     dlg._on_accept()
     assert dlg.params() is None
     assert warnings
@@ -113,7 +128,6 @@ def test_main_window_export_excel_selected_rows(qapp, tmp_path: Path, monkeypatc
         prod_date=date(2026, 1, 12),
         count=1,
     )
-    xlsx = tmp_path / "out.xlsx"
     win = MainWindow(svc)
     win._rows = rows
     win._populate_table(rows)
@@ -122,8 +136,10 @@ def test_main_window_export_excel_selected_rows(qapp, tmp_path: Path, monkeypatc
     class _AcceptedExportDialog:
         def __init__(self, parent=None) -> None:
             self._params = ExportParams(
-                mode=ExportMode.EXCEL,
-                excel_path=xlsx,
+                burn=False,
+                excel=True,
+                export_directory=tmp_path,
+                mark_used=False,
             )
 
         def exec(self) -> QDialog.DialogCode:
@@ -138,7 +154,10 @@ def test_main_window_export_excel_selected_rows(qapp, tmp_path: Path, monkeypatc
     )
     win._on_export()
 
-    wb = load_workbook(xlsx)
+    xlsx_files = list(tmp_path.glob("*.xlsx"))
+    assert len(xlsx_files) == 1
+    assert re.fullmatch(r"\d{14}\.xlsx", xlsx_files[0].name)
+    wb = load_workbook(xlsx_files[0])
     assert wb.active["A2"].value == rows[0]["sn"]
 
 
@@ -163,8 +182,9 @@ def test_main_window_export_burn_mark_used(qapp, tmp_path: Path, monkeypatch):
     class _AcceptedBurnDialog:
         def __init__(self, parent=None) -> None:
             self._params = ExportParams(
-                mode=ExportMode.BURN,
-                burn_directory=burn_dir,
+                burn=True,
+                excel=False,
+                export_directory=burn_dir,
                 mark_used=True,
             )
 
@@ -207,8 +227,9 @@ def test_main_window_export_burn_failure_shows_warning(qapp, tmp_path: Path, mon
     class _AcceptedBurnDialog:
         def __init__(self, parent=None) -> None:
             self._params = ExportParams(
-                mode=ExportMode.BURN,
-                burn_directory=tmp_path / "burn",
+                burn=True,
+                excel=False,
+                export_directory=tmp_path / "burn",
                 mark_used=True,
             )
 
@@ -231,7 +252,7 @@ def test_main_window_export_burn_failure_shows_warning(qapp, tmp_path: Path, mon
         _AcceptedBurnDialog,
     )
     monkeypatch.setattr(
-        "sn_manager.gui.main_window.export_burn_and_mark_used",
+        "sn_manager.gui.main_window.export_selected_and_mark_used",
         boom,
     )
     monkeypatch.setattr(QMessageBox, "warning", _capture_warning)
