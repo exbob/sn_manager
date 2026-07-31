@@ -1,5 +1,6 @@
 import sys
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from sn_manager.app.paths import default_db_path
@@ -11,6 +12,8 @@ from sn_manager.gui.main_window import MainWindow
 
 def main() -> None:
     app = QApplication(sys.argv)
+    # 固定浅色，避免跟随 Windows 系统深色模式
+    app.styleHints().setColorScheme(Qt.ColorScheme.Light)
     chosen = apply_ui_font(app)
     db_path = default_db_path()
     try:

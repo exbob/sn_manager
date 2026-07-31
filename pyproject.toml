@@ -5,7 +5,7 @@ description = "设备序列号管理（Version A）"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "pyside6>=6.6",
+    "pyside6>=6.8",
     "openpyxl>=3.1",
 ]
 
