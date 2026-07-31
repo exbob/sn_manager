@@ -54,13 +54,9 @@ class GenerateDialog(QDialog):
         form = QFormLayout()
 
         self._model_combo = QComboBox()
-        self._model_combo.setEditable(True)
-        self._model_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         form.addRow("型号", self._model_combo)
 
         self._batch_combo = QComboBox()
-        self._batch_combo.setEditable(True)
-        self._batch_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         form.addRow("批次", self._batch_combo)
 
         self._factory_combo = QComboBox()
@@ -97,38 +93,33 @@ class GenerateDialog(QDialog):
     def _load_master_data(self) -> None:
         conn = self._service.conn
         for row in md.list_product_models(conn):
-            self._model_combo.addItem(row["code"])
+            self._model_combo.addItem(f"{row['code']} {row['name']}", row["code"])
         for row in md.list_hardware_batches(conn):
-            self._batch_combo.addItem(row["code"])
+            self._batch_combo.addItem(f"{row['code']} {row['name']}", row["code"])
         for row in md.list_factories(conn):
             self._factory_combo.addItem(f"{row['code']} {row['name']}", row["code"])
         for row in md.list_markets(conn):
             self._market_combo.addItem(f"{row['code']} {row['name']}", row["code"])
 
     def _on_accept(self) -> None:
-        product_model = self._model_combo.currentText().strip()
-        hw_batch = self._batch_combo.currentText().strip()
-        if not product_model:
-            QMessageBox.warning(self, "生成", "请填写型号。")
-            return
-        if not hw_batch:
-            QMessageBox.warning(self, "生成", "请填写批次。")
-            return
-        if self._factory_combo.currentIndex() < 0:
-            QMessageBox.warning(self, "生成", "请选择单位。")
-            return
-        if self._market_combo.currentIndex() < 0:
-            QMessageBox.warning(self, "生成", "请选择市场。")
-            return
-
+        product_model = self._model_combo.currentData()
+        hw_batch = self._batch_combo.currentData()
         factory = self._factory_combo.currentData()
         market = self._market_combo.currentData()
+        if not product_model or not hw_batch or not factory or not market:
+            QMessageBox.warning(
+                self,
+                "生成",
+                "请先在主数据中维护并选择型号、批次、单位与市场。",
+            )
+            return
+
         qd = self._date_edit.date()
         prod_date = date(qd.year(), qd.month(), qd.day())
 
         self._params = GenerateParams(
-            product_model=product_model,
-            hw_batch=hw_batch,
+            product_model=str(product_model),
+            hw_batch=str(hw_batch),
             factory=str(factory),
             market=str(market),
             prod_date=prod_date,

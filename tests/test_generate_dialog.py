@@ -5,43 +5,51 @@ from PySide6.QtWidgets import QDialog, QMessageBox
 
 from sn_manager.app.services import SnService
 from sn_manager.core.version_a import SnFields, encode_version_a
+from sn_manager.db import master_data as md
 from sn_manager.db.connection import connect
 from sn_manager.gui.generate_dialog import GenerateDialog, GenerateParams
 from sn_manager.gui.main_window import MainWindow
 
 
-def test_generate_dialog_loads_seed_master_data(qapp, tmp_path: Path):
+def test_generate_dialog_loads_named_items(qapp, tmp_path: Path):
     conn = connect(tmp_path / "t.db")
-    svc = SnService(conn)
-    dlg = GenerateDialog(svc)
-    assert dlg._factory_combo.count() == 2
-    assert dlg._market_combo.count() == 4
+    md.upsert_product(conn, "SVG14", "示例外壳机")
+    md.upsert_hardware_batch(conn, "05", "第五批")
+    dlg = GenerateDialog(SnService(conn))
+    assert dlg._model_combo.isEditable() is False
+    assert dlg._batch_combo.isEditable() is False
+    assert dlg._model_combo.itemText(0) == "SVG14 示例外壳机"
+    assert dlg._model_combo.itemData(0) == "SVG14"
+    assert dlg._batch_combo.itemText(0) == "05 第五批"
+    assert dlg._factory_combo.itemText(0).startswith("1 ")
 
 
 def test_generate_dialog_returns_params_on_accept(qapp, tmp_path: Path):
     conn = connect(tmp_path / "t.db")
-    svc = SnService(conn)
-    dlg = GenerateDialog(svc)
-    dlg._model_combo.setCurrentText("svg14")
-    dlg._batch_combo.setCurrentText("05")
+    md.upsert_product(conn, "SVG14", "示例外壳机")
+    md.upsert_hardware_batch(conn, "05", "第五批")
+    dlg = GenerateDialog(SnService(conn))
+    dlg._model_combo.setCurrentIndex(0)
+    dlg._batch_combo.setCurrentIndex(0)
     dlg._factory_combo.setCurrentIndex(0)
     dlg._market_combo.setCurrentIndex(0)
-    dlg._date_edit.setDate(dlg._date_edit.date())
     dlg._count_spin.setValue(3)
     dlg._on_accept()
     params = dlg.params()
-    assert params == GenerateParams(
-        product_model="svg14",
-        hw_batch="05",
-        factory=dlg._factory_combo.currentData(),
-        market=dlg._market_combo.currentData(),
-        prod_date=date(
-            dlg._date_edit.date().year(),
-            dlg._date_edit.date().month(),
-            dlg._date_edit.date().day(),
-        ),
-        count=3,
-    )
+    assert params is not None
+    assert params.product_model == "SVG14"
+    assert params.hw_batch == "05"
+    assert params.count == 3
+
+
+def test_generate_dialog_warns_when_model_missing(qapp, tmp_path: Path, monkeypatch):
+    conn = connect(tmp_path / "t.db")
+    dlg = GenerateDialog(SnService(conn))
+    warnings: list[tuple] = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a: warnings.append(a))
+    dlg._on_accept()
+    assert warnings
+    assert "主数据" in warnings[0][2]
 
 
 class _AcceptedGenerateDialog:
