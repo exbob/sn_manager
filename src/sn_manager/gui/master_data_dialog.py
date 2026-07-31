@@ -40,8 +40,8 @@ class MasterDataDialog(QDialog):
         layout = QVBoxLayout(self)
 
         tabs = QTabWidget()
-        self._model_table = self._make_code_table("型号编码")
-        self._batch_table = self._make_code_table("批次编码")
+        self._model_table = self._make_named_table("型号编码", "名称")
+        self._batch_table = self._make_named_table("批次编码", "名称")
         self._factory_table = self._make_named_table("单位编码", "名称")
         self._market_table = self._make_named_table("市场编码", "名称")
 
@@ -63,12 +63,6 @@ class MasterDataDialog(QDialog):
         buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
-
-    def _make_code_table(self, header: str) -> QTableWidget:
-        table = QTableWidget(0, 1)
-        table.setHorizontalHeaderLabels([header])
-        self._configure_table(table)
-        return table
 
     def _make_named_table(self, code_header: str, name_header: str) -> QTableWidget:
         table = QTableWidget(0, 2)
@@ -119,16 +113,10 @@ class MasterDataDialog(QDialog):
 
     def _load_from_db(self) -> None:
         conn = self._service.conn
-        self._fill_code_table(self._model_table, md.list_product_models(conn))
-        self._fill_code_table(self._batch_table, md.list_hardware_batches(conn))
+        self._fill_named_table(self._model_table, md.list_product_models(conn))
+        self._fill_named_table(self._batch_table, md.list_hardware_batches(conn))
         self._fill_named_table(self._factory_table, md.list_factories(conn))
         self._fill_named_table(self._market_table, md.list_markets(conn))
-
-    def _fill_code_table(self, table: QTableWidget, rows: list[dict]) -> None:
-        table.setRowCount(len(rows))
-        for row_idx, row in enumerate(rows):
-            item = QTableWidgetItem(str(row["code"]))
-            table.setItem(row_idx, 0, item)
 
     def _fill_named_table(self, table: QTableWidget, rows: list[dict]) -> None:
         table.setRowCount(len(rows))
@@ -141,20 +129,6 @@ class MasterDataDialog(QDialog):
         if item is None:
             return ""
         return item.text().strip()
-
-    def _collect_codes(self, table: QTableWidget, label: str) -> list[str] | None:
-        codes: list[str] = []
-        seen: set[str] = set()
-        for row in range(table.rowCount()):
-            code = self._cell_text(table, row, 0).upper()
-            if not code:
-                continue
-            if code in seen:
-                QMessageBox.warning(self, "主数据", f"{label}编码重复：{code}")
-                return None
-            seen.add(code)
-            codes.append(code)
-        return codes
 
     def _collect_named(
         self,
@@ -182,10 +156,10 @@ class MasterDataDialog(QDialog):
         return entries
 
     def _collect_snapshot(self) -> MasterSnapshot | None:
-        product_models = self._collect_codes(self._model_table, "型号")
+        product_models = self._collect_named(self._model_table, "型号")
         if product_models is None:
             return None
-        hardware_batches = self._collect_codes(self._batch_table, "批次")
+        hardware_batches = self._collect_named(self._batch_table, "批次")
         if hardware_batches is None:
             return None
         factories = self._collect_named(self._factory_table, "单位")

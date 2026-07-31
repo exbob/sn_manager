@@ -14,6 +14,8 @@ def test_master_data_dialog_loads_seed_data(qapp, tmp_path: Path):
     conn = connect(tmp_path / "t.db")
     svc = SnService(conn)
     dlg = MasterDataDialog(svc)
+    assert dlg._model_table.columnCount() == 2
+    assert dlg._batch_table.columnCount() == 2
     assert dlg._factory_table.rowCount() == 2
     assert dlg._market_table.rowCount() == 4
 
@@ -25,6 +27,7 @@ def test_master_data_dialog_cancel_does_not_write(qapp, tmp_path: Path):
     dlg._add_row(dlg._model_table)
     row = dlg._model_table.rowCount() - 1
     dlg._model_table.setItem(row, 0, QTableWidgetItem("NEW01"))
+    dlg._model_table.setItem(row, 1, QTableWidgetItem("新品"))
     dlg.reject()
     assert md.list_product_models(conn) == []
 
@@ -36,13 +39,30 @@ def test_master_data_dialog_accept_writes_new_model(qapp, tmp_path: Path):
     dlg._add_row(dlg._model_table)
     row = dlg._model_table.rowCount() - 1
     dlg._model_table.setItem(row, 0, QTableWidgetItem("svg14"))
+    dlg._model_table.setItem(row, 1, QTableWidgetItem("示例外壳机"))
     dlg._on_accept()
-    assert [r["code"] for r in md.list_product_models(conn)] == ["SVG14"]
+    rows = md.list_product_models(conn)
+    assert [(r["code"], r["name"]) for r in rows] == [("SVG14", "示例外壳机")]
+
+
+def test_master_data_dialog_reject_empty_name(qapp, tmp_path: Path, monkeypatch):
+    conn = connect(tmp_path / "t.db")
+    dlg = MasterDataDialog(SnService(conn))
+    dlg._add_row(dlg._model_table)
+    row = dlg._model_table.rowCount() - 1
+    dlg._model_table.setItem(row, 0, QTableWidgetItem("SVG14"))
+    dlg._model_table.setItem(row, 1, QTableWidgetItem(""))
+    warnings: list[tuple] = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a: warnings.append(a))
+    dlg._on_accept()
+    assert warnings
+    assert "名称" in warnings[0][2]
+    assert md.list_product_models(conn) == []
 
 
 def test_master_data_dialog_referenced_delete_keeps_open(qapp, tmp_path: Path, monkeypatch):
     conn = connect(tmp_path / "t.db")
-    md.add_product_model(conn, "SVG14")
+    md.add_product_model(conn, "SVG14", "测试型号")
     conn.execute(
         "INSERT INTO serial_numbers("
         "sn, version, product_model, hw_batch, factory, market, "
@@ -88,8 +108,8 @@ def test_apply_master_data_alias(qapp, tmp_path: Path):
     conn = connect(tmp_path / "t.db")
     svc = SnService(conn)
     snapshot = MasterSnapshot(
-        product_models=["ABC12"],
-        hardware_batches=["01"],
+        product_models=[("ABC12", "样机")],
+        hardware_batches=[("01", "一批")],
         factories=[("1", "自己生产"), ("2", "赛威思")],
         markets=[("0", "不限"), ("1", "中国"), ("2", "韩国"), ("3", "美国")],
     )
