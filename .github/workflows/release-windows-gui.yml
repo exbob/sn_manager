@@ -1,0 +1,69 @@
+name: Release Windows GUI
+
+on:
+  push:
+    tags:
+      - "v*"
+      - "V*"
+  # Actions → 本 workflow → Run workflow；仅构建并上传 artifact，不创建 Release
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-gui:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Build executable (PyInstaller onedir)
+        shell: pwsh
+        run: |
+          uv run pyinstaller `
+            --noconfirm `
+            --windowed `
+            --name sn-manager `
+            --paths src `
+            --collect-submodules PySide6 `
+            src/sn_manager/__main__.py
+
+      - name: Zip onedir and verify
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:GITHUB_WORKSPACE "dist/sn-manager"
+          $exe = Join-Path $dir "sn-manager.exe"
+          $zip = Join-Path $env:GITHUB_WORKSPACE "sn-manager-windows.zip"
+          if (-not (Test-Path -LiteralPath $exe)) { throw "Missing $exe" }
+          if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
+          Compress-Archive -Path (Join-Path $dir "*") -DestinationPath $zip
+          if (-not (Test-Path -LiteralPath $zip)) { throw "Missing $zip" }
+          Get-Item -LiteralPath $zip | Format-List Name, Length
+
+      - name: Upload workflow artifact (manual runs / backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: sn-manager-windows
+          path: sn-manager-windows.zip
+          if-no-files-found: error
+
+      - name: Upload to GitHub Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: sn-manager-windows.zip
+          fail_on_unmatched_files: true
+          generate_release_notes: true
