@@ -11,6 +11,17 @@ from PySide6.QtWidgets import (
     QStyleOptionViewItem,
 )
 
+# Shared with results table and master-data tables.
+SKY_BLUE_SELECTION_STYLESHEET = """
+QTableWidget {
+    outline: none;
+}
+QTableWidget::item:selected {
+    background-color: #87CEFA;
+    color: black;
+}
+"""
+
 
 class NoFocusDelegate(QStyledItemDelegate):
     """Paint items without State_HasFocus so Windows focus borders don't cover text."""

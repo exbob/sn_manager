@@ -12,13 +12,13 @@
 
 1. 结果表：选中行背景为浅天蓝 `#87CEFA`，单元格无蓝色焦点框
 2. 主数据：点击「添加」后立刻进入新行首单元格编辑态，可直接输入
-3. 主数据：选中行背景保持系统默认浅灰，单元格无蓝色焦点框
+3. 主数据：选中行背景为浅天蓝 `#87CEFA`，单元格无蓝色焦点框
 
 ## 2. 方案
 
 采用 **QSS（选中色）+ `NoFocusDelegate`（去焦点框）**：
 
-- 结果表用 QSS 设选中色 `#87CEFA`；主数据不覆盖 `item:selected`（保持系统默认灰）
+- 结果表与主数据表均用 QSS 设选中色 `#87CEFA`（`SKY_BLUE_SELECTION_STYLESHEET`）
 - 两表均安装 `NoFocusDelegate`：绘制前清除 `State_HasFocus`。仅靠 `item:focus { border/outline: none }` 在 Windows 上压不住焦点框，黑边会内缩盖住文字
 - 「添加」后用 `setCurrentCell` + `editItem` 进入编辑
 
@@ -44,7 +44,7 @@ QTableWidget::item:selected {
 
 ### 3.2 主数据表（`master_data_dialog.py`）
 
-在 `_configure_table` 中安装 `NoFocusDelegate`，**不**用 QSS 覆盖 `item:selected`（保持系统默认浅灰）。
+在 `_configure_table` 中设置与结果表相同的 `SKY_BLUE_SELECTION_STYLESHEET`，并安装 `NoFocusDelegate`。
 
 ### 3.3 添加后自动编辑（`_add_row`）
 
@@ -64,5 +64,5 @@ QTableWidget::item:selected {
 ## 5. 验证
 
 - 结果表单击、Ctrl/Shift 多选、全选：选中行为 `#87CEFA`，无蓝焦点框
-- 主数据选中行：浅灰底，无蓝焦点框
+- 主数据选中行：`#87CEFA` 底，无蓝焦点框
 - 主数据点「添加」：光标在新行首单元格，可立即键入；确认后仍按原逻辑落库

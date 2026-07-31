@@ -125,7 +125,9 @@ def test_master_tables_use_no_focus_delegate(qapp, tmp_path: Path):
         dlg._market_table,
     ):
         assert isinstance(table.itemDelegate(), NoFocusDelegate)
-        assert "#87CEFA" not in table.styleSheet()
+        ss = table.styleSheet().replace(" ", "")
+        assert "#87CEFA" in ss
+        assert "outline:none" in ss
 
 
 def test_master_add_row_starts_editing_first_cell(qapp, tmp_path: Path):

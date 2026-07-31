@@ -19,7 +19,10 @@ from PySide6.QtWidgets import (
 from sn_manager.app.services import MasterSnapshot, SnService
 from sn_manager.core.errors import ValidationError
 from sn_manager.db import master_data as md
-from sn_manager.gui.no_focus_delegate import install_no_focus_delegate
+from sn_manager.gui.no_focus_delegate import (
+    SKY_BLUE_SELECTION_STYLESHEET,
+    install_no_focus_delegate,
+)
 
 
 class MasterDataDialog(QDialog):
@@ -76,6 +79,7 @@ class MasterDataDialog(QDialog):
     def _configure_table(self, table: QTableWidget) -> None:
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        table.setStyleSheet(SKY_BLUE_SELECTION_STYLESHEET)
         # QSS alone cannot suppress the Windows focus frame that covers cell text.
         install_no_focus_delegate(table)
         header = table.horizontalHeader()
