@@ -13,8 +13,8 @@
 - 产物形态：PyInstaller **onedir**，再打成 `sn-manager-windows.zip`（非 onefile）
 - 触发：`workflow_dispatch`（仅 artifact）+ push tags `v*` / `V*`（artifact + Release）
 - 删除 `scripts/build.ps1`；保留 `scripts/build.sh`
-- PyInstaller 参数与删除前 `build.ps1` 一致：`--noconfirm --windowed --name sn-manager --paths src --collect-submodules PySide6`，入口 `src/sn_manager/__main__.py`
-- 不做 Linux CI；不引入 `app_version.txt`
+- PyInstaller 参数与删除前 `build.ps1` 一致并增加版本文件：`--noconfirm --windowed --name sn-manager --paths src --collect-submodules PySide6 --add-data "app_version.txt;."`，入口 `src/sn_manager/__main__.py`
+- 不做 Linux CI；构建前写入 `app_version.txt` 并 `--add-data` 打进包（见应用版本展示规格）
 - 规格来源：`docs/superpowers/specs/2026-07-31-windows-ci-release-design.md`
 
 ## File Structure
@@ -75,6 +75,10 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
+      - name: Write app_version.txt
+        shell: bash
+        run: bash scripts/git-version.sh > app_version.txt
+
       - name: Build executable (PyInstaller onedir)
         shell: pwsh
         run: |
@@ -84,6 +88,7 @@ jobs:
             --name sn-manager `
             --paths src `
             --collect-submodules PySide6 `
+            --add-data "app_version.txt;." `
             src/sn_manager/__main__.py
 
       - name: Zip onedir and verify
@@ -315,6 +320,7 @@ EOF
 | uv + Python 3.12 + 原 PyInstaller 参数 | Task 1 |
 | 更新 README | Task 2 |
 | 轻量更新 PRD + 2026-07-30 设计规格 | Task 3 |
-| 不做 Linux CI / onefile / app_version | 未加入任何 Task |
+| 不做 Linux CI / onefile | 未加入任何 Task |
+| 写入并打包 `app_version.txt` | 见 `2026-07-31-app-version-display` 计划 |
 
 无 TBD/占位；产物名与 README 一致为 `sn-manager-windows.zip`。

@@ -29,6 +29,10 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
+      - name: Write app_version.txt
+        shell: bash
+        run: bash scripts/git-version.sh > app_version.txt
+
       - name: Build executable (PyInstaller onedir)
         shell: pwsh
         run: |
@@ -38,6 +42,7 @@ jobs:
             --name sn-manager `
             --paths src `
             --collect-submodules PySide6 `
+            --add-data "app_version.txt;." `
             src/sn_manager/__main__.py
 
       - name: Zip onedir and verify

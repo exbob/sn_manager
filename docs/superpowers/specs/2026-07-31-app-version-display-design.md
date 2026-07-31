@@ -1,7 +1,7 @@
 # 主界面应用版本号展示设计
 
 日期：2026-07-31  
-状态：待用户审阅  
+状态：已确认  
 关联：`scripts/git-version.sh`；修订 `docs/superpowers/specs/2026-07-31-windows-ci-release-design.md` 中「不引入 app_version.txt」的表述
 
 ## 1. 背景与目标

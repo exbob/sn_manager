@@ -32,8 +32,7 @@
 - 将 `dist/sn-manager/` 打成 **`sn-manager-windows.zip`**
 - Artifact 名称：`sn-manager-windows`；Release 附件为同一 zip
 - 校验：zip（及必要时包内 `sn-manager.exe`）存在后再上传
-
-不引入版本写入文件（参考仓库的 `app_version.txt`）；本仓库无此需求。
+- 构建前用 `scripts/git-version.sh` 写出仓库根 `app_version.txt`，并以 `--add-data` 打进包，供主界面展示应用版本（见 `2026-07-31-app-version-display-design.md`）
 
 ## 4. 仓库改动范围
 
