@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from PySide6.QtCore import QDate, Qt
@@ -28,13 +28,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from sn_manager.app.export import export_selected_and_mark_used
 from sn_manager.app.services import SnService
 from sn_manager.app.version import resolve_app_version
 from sn_manager.core.errors import SnError
 from sn_manager.core.status import Status
-from sn_manager.app.export import export_burn_and_mark_used, export_excel
 from sn_manager.db import master_data as md
-from sn_manager.gui.export_dialog import ExportDialog, ExportMode
+from sn_manager.gui.export_dialog import ExportDialog
 from sn_manager.gui.generate_dialog import GenerateDialog
 from sn_manager.gui.master_data_dialog import MasterDataDialog
 from sn_manager.gui.no_focus_delegate import (
@@ -433,22 +433,22 @@ class MainWindow(QMainWindow):
         params = dlg.params()
         if params is None:
             return
+        excel_path = None
+        if params.excel:
+            excel_path = params.export_directory / datetime.now().strftime(
+                "%Y%m%d%H%M%S.xlsx"
+            )
         try:
-            if params.mode is ExportMode.EXCEL:
-                if params.excel_path is None:
-                    return
-                export_excel(rows, params.excel_path)
-            else:
-                if params.burn_directory is None:
-                    return
-                sns = [str(row["sn"]) for row in rows]
-                export_burn_and_mark_used(
-                    self._service,
-                    sns,
-                    params.burn_directory,
-                    mark_used=params.mark_used,
-                )
-                if params.mark_used:
-                    self._refresh_rows_for_sns(sns)
+            export_selected_and_mark_used(
+                self._service,
+                rows,
+                burn=params.burn,
+                excel=params.excel,
+                export_directory=params.export_directory,
+                mark_used=params.mark_used,
+                excel_path=excel_path,
+            )
+            if params.mark_used:
+                self._refresh_rows_for_sns([str(r["sn"]) for r in rows])
         except OSError as exc:
             QMessageBox.warning(self, "导出失败", str(exc))
