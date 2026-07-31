@@ -35,7 +35,7 @@
 - Consumes: `MainWindow._selected_sns() -> list[str]`；`MainWindow._populate_table`；`MainWindow._table`
 - Produces: `MainWindow._count_label: QLabel`；`MainWindow._update_count_label() -> None`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `tests/test_results_count_label.py`：
 
@@ -106,13 +106,13 @@ def test_count_label_after_populate_and_select(qapp, tmp_path: Path) -> None:
     assert win._count_label.text() == "共 3 条，已选 0 条"
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `uv run pytest tests/test_results_count_label.py -v`
 
 Expected: FAIL（`AttributeError: '_count_label'` 或类似）
 
-- [ ] **Step 3: 最小实现**
+- [x] **Step 3: 最小实现**
 
 在 `_build_results_panel` 中，将：
 
@@ -151,7 +151,7 @@ Expected: FAIL（`AttributeError: '_count_label'` 或类似）
 
 （`_populate_table` 末尾已调用 `_update_action_buttons()`，无需再改。）
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `uv run pytest tests/test_results_count_label.py -v`
 
@@ -163,7 +163,7 @@ Run: `uv run pytest tests/test_export_dialog.py::test_main_window_action_buttons
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/sn_manager/gui/main_window.py tests/test_results_count_label.py docs/superpowers/plans/2026-07-31-results-count-label.md
