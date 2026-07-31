@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 )
 
 from sn_manager.app.services import SnService
+from sn_manager.app.version import resolve_app_version
 from sn_manager.core.errors import SnError
 from sn_manager.core.status import Status
 from sn_manager.app.export import export_burn_and_mark_used, export_excel
@@ -190,6 +191,16 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._generate_btn)
         layout.addWidget(self._master_btn)
         layout.addStretch()
+
+        self._version_label = QLabel(resolve_app_version())
+        self._version_label.setAlignment(
+            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
+        )
+        font = self._version_label.font()
+        font.setPointSize(max(8, font.pointSize() - 2))
+        self._version_label.setFont(font)
+        self._version_label.setStyleSheet("color: #666666;")
+        layout.addWidget(self._version_label)
         return panel
 
     def _build_results_panel(self) -> QWidget:
