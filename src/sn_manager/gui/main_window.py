@@ -36,6 +36,7 @@ from sn_manager.app.export import export_burn_and_mark_used, export_excel
 from sn_manager.gui.export_dialog import ExportDialog, ExportMode
 from sn_manager.gui.generate_dialog import GenerateDialog
 from sn_manager.gui.master_data_dialog import MasterDataDialog
+from sn_manager.gui.no_focus_delegate import install_no_focus_delegate
 
 _TABLE_COLUMNS: list[tuple[str, str]] = [
     ("sn", "SN"),
@@ -221,16 +222,17 @@ class MainWindow(QMainWindow):
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.setStyleSheet(
             """
+            QTableWidget {
+                outline: none;
+            }
             QTableWidget::item:selected {
                 background-color: #87CEFA;
                 color: black;
             }
-            QTableWidget::item:focus {
-                outline: none;
-                border: none;
-            }
             """
         )
+        # QSS alone cannot suppress the Windows focus frame that covers cell text.
+        install_no_focus_delegate(self._table)
         header = self._table.horizontalHeader()
         if header is not None:
             header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)

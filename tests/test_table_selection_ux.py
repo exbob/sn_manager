@@ -3,6 +3,7 @@ from pathlib import Path
 from sn_manager.app.services import SnService
 from sn_manager.db.connection import connect
 from sn_manager.gui.main_window import MainWindow
+from sn_manager.gui.no_focus_delegate import NoFocusDelegate
 
 
 def test_results_table_selection_stylesheet(qapp, tmp_path: Path) -> None:
@@ -10,5 +11,5 @@ def test_results_table_selection_stylesheet(qapp, tmp_path: Path) -> None:
     win = MainWindow(SnService(conn))
     ss = win._table.styleSheet().replace(" ", "")
     assert "#87CEFA" in ss
-    assert "item:focus" in ss
     assert "outline:none" in ss
+    assert isinstance(win._table.itemDelegate(), NoFocusDelegate)

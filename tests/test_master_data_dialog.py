@@ -7,6 +7,7 @@ from sn_manager.db import master_data as md
 from sn_manager.db.connection import connect
 from sn_manager.gui.main_window import MainWindow
 from sn_manager.gui.master_data_dialog import MasterDataDialog
+from sn_manager.gui.no_focus_delegate import NoFocusDelegate
 
 
 def test_master_data_dialog_loads_seed_data(qapp, tmp_path: Path):
@@ -114,7 +115,7 @@ def test_main_window_master_data_opens_dialog(qapp, tmp_path: Path, monkeypatch)
     assert opened == [True]
 
 
-def test_master_tables_focus_stylesheet_keeps_default_selection(qapp, tmp_path: Path):
+def test_master_tables_use_no_focus_delegate(qapp, tmp_path: Path):
     conn = connect(tmp_path / "t.db")
     dlg = MasterDataDialog(SnService(conn))
     for table in (
@@ -123,10 +124,8 @@ def test_master_tables_focus_stylesheet_keeps_default_selection(qapp, tmp_path: 
         dlg._factory_table,
         dlg._market_table,
     ):
-        ss = table.styleSheet()
-        assert "focus" in ss
-        assert "outline" in ss
-        assert "#87CEFA" not in ss
+        assert isinstance(table.itemDelegate(), NoFocusDelegate)
+        assert "#87CEFA" not in table.styleSheet()
 
 
 def test_master_add_row_starts_editing_first_cell(qapp, tmp_path: Path):

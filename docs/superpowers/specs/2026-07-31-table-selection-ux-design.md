@@ -16,42 +16,35 @@
 
 ## 2. 方案
 
-采用 **QSS 样式表**（方案 A）：
+采用 **QSS（选中色）+ `NoFocusDelegate`（去焦点框）**：
 
-- 结果表与主数据表分别设置样式（选中色要求不同，不抽公共模块）
+- 结果表用 QSS 设选中色 `#87CEFA`；主数据不覆盖 `item:selected`（保持系统默认灰）
+- 两表均安装 `NoFocusDelegate`：绘制前清除 `State_HasFocus`。仅靠 `item:focus { border/outline: none }` 在 Windows 上压不住焦点框，黑边会内缩盖住文字
 - 「添加」后用 `setCurrentCell` + `editItem` 进入编辑
-
-不采用 QPalette（难以单独去掉焦点框且两表配色分叉别扭）或自定义 ItemDelegate（过重）。
 
 ## 3. 改动点
 
 ### 3.1 结果表（`main_window.py`）
 
-在结果表创建/配置后设置样式，例如：
+在结果表创建/配置后设置样式并安装委托，例如：
 
 ```css
+QTableWidget {
+    outline: none;
+}
 QTableWidget::item:selected {
     background-color: #87CEFA;
     color: black;
 }
-QTableWidget::item:focus {
-    outline: none;
-    border: none;
-}
 ```
+
+另：`install_no_focus_delegate(self._table)`（见 `gui/no_focus_delegate.py`）。
 
 行为不变：只读、`SelectRows` + `ExtendedSelection`；单击/多选/全选均使用上述选中色。
 
 ### 3.2 主数据表（`master_data_dialog.py`）
 
-在 `_configure_table` 中仅去掉焦点框，**不**覆盖 `item:selected`：
-
-```css
-QTableWidget::item:focus {
-    outline: none;
-    border: none;
-}
-```
+在 `_configure_table` 中安装 `NoFocusDelegate`，**不**用 QSS 覆盖 `item:selected`（保持系统默认浅灰）。
 
 ### 3.3 添加后自动编辑（`_add_row`）
 
