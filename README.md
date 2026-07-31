@@ -1,60 +1,93 @@
 # sn-manager
 
-产线单机桌面工具：本地生成、查询、导出设备序列号（Version A），数据存本机 SQLite，无需联网。
+## 1. 项目简介
 
-## 运行环境
+单机桌面工具：在本机**生成、查询、导出**设备序列号（当前支持 **Version A**，固定 17 位）。数据存本机 SQLite（`sn_manager.db`），**无需联网、无登录**，面向 Windows 单机使用。
 
-- **操作系统**：Windows 或 Linux 单机
-- **中文字体（Linux/WSL 必看）**：界面为中文。若中文显示为乱码或方框，说明系统缺少中文字体。任选其一：
-  - `sudo apt install fonts-noto-cjk`（推荐）
-  - 或将 `NotoSansCJK-Regular.ttc` 放到 `~/.local/share/fonts/` 后执行 `fc-cache -f`
-- **数据文件**：与可执行文件同目录的 `sn_manager.db`（首次运行自动创建）
-- **开发运行**（需 Python ≥3.12 与 [uv](https://docs.astral.sh/uv/)）：
+**技术方案概要**：Python（≥3.12）+ [uv](https://docs.astral.sh/uv/)；界面 **PySide6**；持久化 **SQLite**；发行包用 **PyInstaller**（onedir）。分层为 `sn_gui → sn_app → sn_core + sn_db`。
+
+| 文档 | 说明 |
+| ---- | ---- |
+| [`docs/PRD.md`](docs/PRD.md) | 产品需求与规则 |
+| [`docs/superpowers/specs/`](docs/superpowers/specs/) | 设计规格 |
+| [`docs/user-manual.md`](docs/user-manual.md) | 使用手册（功能与逐步操作） |
+
+---
+
+## 2. 使用方法
+
+### 2.1 获取 Windows 发行版并启动
+
+1. 打开本仓库 GitHub **Releases**，下载 **`sn-manager-windows.zip`**。
+2. 也可在 Actions 中手动 **Run workflow** 做试构建，从该次运行的 Artifacts 下载同名 zip（不创建 Release）。
+3. 完整解压到本机目录，运行其中的 `sn-manager.exe`（勿只拷贝单个 exe）。
+4. 首次运行会在 exe **同目录**自动创建或使用 **`sn_manager.db`**。
+
+**数据库文件`sn_manager.db`非常重要，所有数据都保存在这里！**
+
+### 2.2 大致用法
+
+典型顺序：
+
+1. **主数据**：维护产品型号、硬件批次，并确认生产单位、市场等下拉项。
+2. **生成**：选择型号/批次/单位/市场、生产日期与数量，确认后写入；右侧展示本批新 SN。
+3. **查询**：左侧设条件后点「查询」；结果表可多选 / 全选。
+4. **改状态 / 导出**：选中行后可改「未使用 / 已使用 / 作废」，或导出烧写 txt 和/或 Excel。
+
+详细的使用方法见 **[`docs/user-manual.md`](docs/user-manual.md)**。
+
+### 2.3 重要注意事项
+
+- **统一管理**：最好由一个人统一生成和管理设备序列号，不要多人管理。
+- **勿多开**：同一台机器不要多个实例同时打开同一 `sn_manager.db`，以免 SQLite 冲突或损坏数据。
+- **备份**：数据库文件`sn_manager.db`非常重要，所有数据都保存在这里！可以定期备份，恢复前先关闭程序再覆盖。
+- **整目录使用**：发行包为 onedir，请保留解压后的完整目录结构。
+
+### 2.4 Linux 可执行文件（可选）
+
+Linux 需在本机打包（PyInstaller 不支持可靠交叉编译）：
 
 ```bash
-uv sync
-uv run sn-manager
+./scripts/build.sh
+./dist/sn-manager/sn-manager
 ```
 
-开发态下数据库位于当前工作目录的 `sn_manager.db`。
+---
 
-## 使用打包产物
+## 3. 开发说明
 
-### Windows
+### 3.1 环境
 
-由 GitHub Actions 构建 **onedir** 并打成 `sn-manager-windows.zip`：
+- 操作系统：Linux（含 WSL）或 Windows 均可开发
+- Python ≥ **3.12**，包管理使用 **[uv](https://docs.astral.sh/uv/)**
+- **中文字体（Linux/WSL）**：界面为中文。若乱码或方框，可安装 `fonts-noto-cjk`，或将 `NotoSansCJK-Regular.ttc` 放到 `~/.local/share/fonts/` 后执行 `fc-cache -f`
 
-| 场景 | 做法 |
-| ---- | ---- |
-| 正式发布 | 推送 `v*` / `V*` tag（如 `v0.1.0`）→ 等待 [Release Windows GUI](.github/workflows/release-windows-gui.yml) → 从 GitHub Release 下载 zip |
-| 试构建 | Actions → Release Windows GUI → Run workflow → 从 Artifacts 下载（不创建 Release） |
-
-解压后运行 `sn-manager.exe`。可执行文件与 `sn_manager.db` 位于同一目录，便于备份与迁移。
-
-### Linux
-
-| 构建命令 | 启动方式 |
-| -------- | -------- |
-| `./scripts/build.sh` | `./dist/sn-manager/sn-manager` |
-
-同样为 **onedir**：产物在 `dist/sn-manager/`。
-
-## 数据备份
-
-定期复制 `sn_manager.db` 到安全位置即可整库备份。恢复时将文件放回可执行文件同目录，覆盖前请先关闭程序。
-
-## 注意事项
-
-- **勿双开**：同一台机器上不要同时运行多个实例指向同一 `sn_manager.db`，否则可能导致 SQLite 写入冲突或数据损坏。
-- **分平台构建**：Windows 可执行文件由 GitHub Actions（`windows-latest`）构建；Linux 在本地用 `scripts/build.sh` 构建。PyInstaller 不支持可靠交叉编译。
-
-## 开发
+### 3.2 运行与测试
 
 ```bash
 uv sync
+uv run sn-manager          # 开发态启动；数据库为当前工作目录下的 sn_manager.db
 uv run pytest -v
 ```
 
-## 软件架构
+### 3.3 构建
 
-PySide6 GUI → 应用服务层 → 领域核心（SN 编解码）+ SQLite 持久化。详见 `PRD.md` 与设计规格 `docs/superpowers/specs/`。
+| 平台 | 方式 |
+| ---- | ---- |
+| Windows | GitHub Actions：`Release Windows GUI`（tag 发 Release，或 `workflow_dispatch` 出 artifact） |
+| Linux | `./scripts/build.sh` → `dist/sn-manager/sn-manager` |
+
+构建前会生成 `app_version.txt`（不入库），打包进产物供主界面左下角显示版本。
+
+### 3.4 软件架构
+
+单向依赖，便于核心逻辑单测：
+
+```
+sn_gui (PySide6)
+    → sn_app（事务编排、批量生成、导出与可选改状态）
+        → sn_core（SN 编解码 / 校验 / 状态规则）
+        → sn_db（SQLite 持久化与序号分配）
+```
+
+源码位于 `src/sn_manager/`。规则与数据模型细节见 [`docs/PRD.md`](docs/PRD.md)；功能级设计见 [`docs/superpowers/specs/`](docs/superpowers/specs/)。
