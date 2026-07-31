@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PySide6.QtWidgets import QDialog, QMessageBox, QTableWidgetItem
+from PySide6.QtWidgets import QAbstractItemView, QDialog, QMessageBox, QTableWidgetItem
 
 from sn_manager.app.services import MasterSnapshot, SnService
 from sn_manager.db import master_data as md
@@ -112,3 +112,30 @@ def test_main_window_master_data_opens_dialog(qapp, tmp_path: Path, monkeypatch)
     monkeypatch.setattr("sn_manager.gui.main_window.MasterDataDialog", _StubDialog)
     win._on_master_data()
     assert opened == [True]
+
+
+def test_master_tables_focus_stylesheet_keeps_default_selection(qapp, tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    dlg = MasterDataDialog(SnService(conn))
+    for table in (
+        dlg._model_table,
+        dlg._batch_table,
+        dlg._factory_table,
+        dlg._market_table,
+    ):
+        ss = table.styleSheet()
+        assert "focus" in ss
+        assert "outline" in ss
+        assert "#87CEFA" not in ss
+
+
+def test_master_add_row_starts_editing_first_cell(qapp, tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    dlg = MasterDataDialog(SnService(conn))
+    table = dlg._model_table
+    before = table.rowCount()
+    dlg._add_row(table)
+    assert table.rowCount() == before + 1
+    assert table.currentRow() == before
+    assert table.currentColumn() == 0
+    assert table.state() == QAbstractItemView.State.EditingState

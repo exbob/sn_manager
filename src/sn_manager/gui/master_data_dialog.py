@@ -75,6 +75,14 @@ class MasterDataDialog(QDialog):
     def _configure_table(self, table: QTableWidget) -> None:
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        table.setStyleSheet(
+            """
+            QTableWidget::item:focus {
+                outline: none;
+                border: none;
+            }
+            """
+        )
         header = table.horizontalHeader()
         if header is not None:
             header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
@@ -100,6 +108,10 @@ class MasterDataDialog(QDialog):
         table.insertRow(row)
         for col in range(table.columnCount()):
             table.setItem(row, col, QTableWidgetItem(""))
+        table.setCurrentCell(row, 0)
+        item = table.item(row, 0)
+        if item is not None:
+            table.editItem(item)
 
     def _remove_row(self, table: QTableWidget) -> None:
         row = table.currentRow()
