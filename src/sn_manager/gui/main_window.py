@@ -33,6 +33,7 @@ from sn_manager.app.version import resolve_app_version
 from sn_manager.core.errors import SnError
 from sn_manager.core.status import Status
 from sn_manager.app.export import export_burn_and_mark_used, export_excel
+from sn_manager.db import master_data as md
 from sn_manager.gui.export_dialog import ExportDialog, ExportMode
 from sn_manager.gui.generate_dialog import GenerateDialog
 from sn_manager.gui.master_data_dialog import MasterDataDialog
@@ -147,17 +148,21 @@ class MainWindow(QMainWindow):
         self._sn_edit.setPlaceholderText("完整 SN")
         form.addRow("完整 SN", self._sn_edit)
 
-        self._model_edit = QLineEdit()
-        form.addRow("型号", self._model_edit)
+        self._model_combo = QComboBox()
+        self._model_combo.setEditable(False)
+        form.addRow("型号", self._model_combo)
 
-        self._batch_edit = QLineEdit()
-        form.addRow("批次", self._batch_edit)
+        self._batch_combo = QComboBox()
+        self._batch_combo.setEditable(False)
+        form.addRow("批次", self._batch_combo)
 
-        self._factory_edit = QLineEdit()
-        form.addRow("单位", self._factory_edit)
+        self._factory_combo = QComboBox()
+        self._factory_combo.setEditable(False)
+        form.addRow("单位", self._factory_combo)
 
-        self._market_edit = QLineEdit()
-        form.addRow("市场", self._market_edit)
+        self._market_combo = QComboBox()
+        self._market_combo.setEditable(False)
+        form.addRow("市场", self._market_combo)
 
         self._status_combo = QComboBox()
         for label, _ in _STATUS_FILTER_OPTIONS:
@@ -205,7 +210,24 @@ class MainWindow(QMainWindow):
         self._version_label.setFont(font)
         self._version_label.setStyleSheet("color: #666666;")
         layout.addWidget(self._version_label)
+        self._reload_filter_master_combos()
         return panel
+
+    def _reload_filter_master_combos(self) -> None:
+        def fill(combo: QComboBox, rows: list[dict[str, Any]]) -> None:
+            current = combo.currentData()
+            combo.clear()
+            combo.addItem("", None)
+            for row in rows:
+                combo.addItem(f"{row['code']} {row['name']}", row["code"])
+            idx = combo.findData(current)
+            combo.setCurrentIndex(idx if idx >= 0 else 0)
+
+        conn = self._service.conn
+        fill(self._model_combo, md.list_product_models(conn))
+        fill(self._batch_combo, md.list_hardware_batches(conn))
+        fill(self._factory_combo, md.list_factories(conn))
+        fill(self._market_combo, md.list_markets(conn))
 
     def _build_results_panel(self) -> QWidget:
         panel = QWidget()
@@ -257,14 +279,14 @@ class MainWindow(QMainWindow):
 
         if text := self._sn_edit.text().strip():
             criteria["sn"] = text
-        if text := self._model_edit.text().strip():
-            criteria["product_model"] = text
-        if text := self._batch_edit.text().strip():
-            criteria["hw_batch"] = text
-        if text := self._factory_edit.text().strip():
-            criteria["factory"] = text
-        if text := self._market_edit.text().strip():
-            criteria["market"] = text
+        if code := self._model_combo.currentData():
+            criteria["product_model"] = code
+        if code := self._batch_combo.currentData():
+            criteria["hw_batch"] = code
+        if code := self._factory_combo.currentData():
+            criteria["factory"] = code
+        if code := self._market_combo.currentData():
+            criteria["market"] = code
 
         status_index = self._status_combo.currentIndex()
         _, status_value = _STATUS_FILTER_OPTIONS[status_index]
@@ -385,7 +407,8 @@ class MainWindow(QMainWindow):
 
     def _on_master_data(self) -> None:
         dlg = MasterDataDialog(self._service, parent=self)
-        dlg.exec()
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self._reload_filter_master_combos()
 
     def _on_change_status(self) -> None:
         sns = self._selected_sns()
