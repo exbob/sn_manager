@@ -219,6 +219,18 @@ class MainWindow(QMainWindow):
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self._table.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._table.setStyleSheet(
+            """
+            QTableWidget::item:selected {
+                background-color: #87CEFA;
+                color: black;
+            }
+            QTableWidget::item:focus {
+                outline: none;
+                border: none;
+            }
+            """
+        )
         header = self._table.horizontalHeader()
         if header is not None:
             header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
