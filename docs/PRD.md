@@ -4,7 +4,7 @@
 
 - 这是一个设备序列号的管理软件，负责生成和查询特定格式的设备序列号。
 - 使用 Python 开发，使用 uv 做项目管理；开发可在 Linux 上进行。
-- **运行环境**：Windows 或 Linux 单机；需能分别打包出 **Windows 可执行文件** 与 **Linux 可执行文件**（PyInstaller）。
+- **运行环境**：Windows 或 Linux 单机；Windows 可执行文件由 GitHub Actions（PyInstaller）发布，Linux 可执行文件由本地 PyInstaller 脚本构建。
 - **使用场景**：产线单机桌面工具。操作员在本机生成 / 查询 SN，数据存在本机，不必联网。
 - **交互形态**：图形界面（GUI），中文界面，无登录。
 
@@ -48,7 +48,7 @@ Version A 的设备序列号，长度固定17个字符，占用17个字节，包
 
 ### 选型
 
-- **方案**：桌面 GUI（PySide6）+ 本地 SQLite + 领域核心库；用 **PyInstaller** 分别打包 Windows（`.exe`）与 Linux 可执行文件
+- **方案**：桌面 GUI（PySide6）+ 本地 SQLite + 领域核心库；用 **PyInstaller** 打包：Windows 经 CI 产出 onedir zip，Linux 经本地脚本产出 onedir
 - **开发**：Python（≥3.12）+ uv（可在 Linux 上开发）
 - **打包约束**：PyInstaller 一般需在**目标操作系统上**构建（或在对应系统的 CI 中构建），不依赖不可靠的交叉编译
 
@@ -163,5 +163,5 @@ sn_gui (PySide6)
 
 - Version A 编解码往返、非法字段拒绝、序号连续与触顶、N=1/N>1、作废不回收
 - 主数据对话框确认/取消；选中行改状态；选中后导出 Excel/烧写及「导出后标已使用」
-- Windows / Linux 各自打包后启动与读写库文件的手工验证
+- Windows：从 Release / Actions artifact 获取 zip 后启动与读写库文件的手工验证；Linux：本地打包后同等验证
 - 界面：启动为查询主界面；无选中时导出禁用；生成成功后右侧展示新 SN
