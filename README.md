@@ -20,12 +20,24 @@ uv run sn-manager
 
 ## 使用打包产物
 
-| 平台 | 构建命令 | 启动方式 |
-| ---- | -------- | -------- |
-| Linux | `./scripts/build.sh` | `./dist/sn-manager/sn-manager` |
-| Windows | `.\scripts\build.ps1` | `dist\sn-manager\sn-manager.exe` |
+### Windows
 
-采用 **onedir** 打包：可执行文件与 `sn_manager.db` 位于同一目录（`dist/sn-manager/`），便于备份与迁移。
+由 GitHub Actions 构建 **onedir** 并打成 `sn-manager-windows.zip`：
+
+| 场景 | 做法 |
+| ---- | ---- |
+| 正式发布 | 推送 `v*` / `V*` tag（如 `v0.1.0`）→ 等待 [Release Windows GUI](.github/workflows/release-windows-gui.yml) → 从 GitHub Release 下载 zip |
+| 试构建 | Actions → Release Windows GUI → Run workflow → 从 Artifacts 下载（不创建 Release） |
+
+解压后运行 `sn-manager.exe`。可执行文件与 `sn_manager.db` 位于同一目录，便于备份与迁移。
+
+### Linux
+
+| 构建命令 | 启动方式 |
+| -------- | -------- |
+| `./scripts/build.sh` | `./dist/sn-manager/sn-manager` |
+
+同样为 **onedir**：产物在 `dist/sn-manager/`。
 
 ## 数据备份
 
@@ -34,7 +46,7 @@ uv run sn-manager
 ## 注意事项
 
 - **勿双开**：同一台机器上不要同时运行多个实例指向同一 `sn_manager.db`，否则可能导致 SQLite 写入冲突或数据损坏。
-- **分平台构建**：PyInstaller 需在目标操作系统上构建（Linux 脚本产出 Linux 可执行文件，Windows 脚本产出 `.exe`），不支持可靠交叉编译。
+- **分平台构建**：Windows 可执行文件由 GitHub Actions（`windows-latest`）构建；Linux 在本地用 `scripts/build.sh` 构建。PyInstaller 不支持可靠交叉编译。
 
 ## 开发
 
