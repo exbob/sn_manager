@@ -281,6 +281,8 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._table)
 
         bottom_row = QHBoxLayout()
+        self._count_label = QLabel("共 0 条，已选 0 条")
+        bottom_row.addWidget(self._count_label)
         bottom_row.addStretch()
         self._change_status_btn = QPushButton("改状态")
         self._export_btn = QPushButton("导出")
@@ -435,10 +437,16 @@ class MainWindow(QMainWindow):
             updated[r["sn"]] if r.get("sn") in updated else r for r in self._rows
         ]
 
+    def _update_count_label(self) -> None:
+        n = self._table.rowCount()
+        m = len(self._selected_sns())
+        self._count_label.setText(f"共 {n} 条，已选 {m} 条")
+
     def _update_action_buttons(self) -> None:
         has_selection = bool(self._selected_sns())
         self._change_status_btn.setEnabled(has_selection)
         self._export_btn.setEnabled(has_selection)
+        self._update_count_label()
 
     def _on_generate(self) -> None:
         dlg = GenerateDialog(self._service, parent=self)
