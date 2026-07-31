@@ -10,7 +10,11 @@ from sn_manager.app.services import SnService
 from sn_manager.core.status import Status
 from sn_manager.db.connection import connect
 from sn_manager.gui.export_dialog import ExportDialog, ExportParams
-from sn_manager.gui.main_window import ChangeStatusDialog, MainWindow
+from sn_manager.gui.main_window import ChangeStatusDialog, MainWindow, _TABLE_COLUMNS
+
+
+def _status_col() -> int:
+    return next(i for i, (k, _) in enumerate(_TABLE_COLUMNS) if k == "status")
 
 
 def test_export_dialog_defaults(qapp):
@@ -111,7 +115,7 @@ def test_main_window_change_status_updates_table(qapp, tmp_path: Path, monkeypat
     )
     win._on_change_status()
 
-    status_item = win._table.item(0, 9)
+    status_item = win._table.item(0, _status_col())
     assert status_item is not None
     assert status_item.text() == "已使用"
     assert svc.filter(sn=rows[0]["sn"])[0]["status"] == Status.USED.value
@@ -202,7 +206,7 @@ def test_main_window_export_burn_mark_used(qapp, tmp_path: Path, monkeypatch):
 
     assert (burn_dir / f"sn_{sn}.txt").read_text(encoding="utf-8") == sn
     assert svc.filter(sn=sn)[0]["status"] == Status.USED.value
-    status_item = win._table.item(0, 9)
+    status_item = win._table.item(0, _status_col())
     assert status_item is not None
     assert status_item.text() == "已使用"
 

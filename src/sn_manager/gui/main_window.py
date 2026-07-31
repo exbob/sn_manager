@@ -6,7 +6,7 @@ from datetime import date, datetime, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from PySide6.QtCore import QDate, Qt
+from PySide6.QtCore import QDate, QItemSelectionModel, Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -74,8 +74,9 @@ _TABLE_COLUMNS: list[tuple[str, str]] = [
     ("prod_month", "月"),
     ("prod_day", "日"),
     ("seq", "序号"),
-    ("status", "状态"),
     ("created_at", "创建时间"),
+    ("status", "状态"),
+    ("updated_at", "更新时间"),
 ]
 
 _STATUS_LABELS: dict[str, str] = {
@@ -256,7 +257,10 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(panel)
 
         top_row = QHBoxLayout()
-        top_row.addWidget(QLabel("结果表（可多选）"))
+        top_row.addWidget(QLabel("结果表"))
+        self._beijing_time_cb = QCheckBox("北京时间")
+        self._beijing_time_cb.setChecked(True)
+        top_row.addWidget(self._beijing_time_cb)
         top_row.addStretch()
         self._select_all_btn = QPushButton("全选")
         top_row.addWidget(self._select_all_btn)
@@ -292,6 +296,7 @@ class MainWindow(QMainWindow):
         self._generate_btn.clicked.connect(self._on_generate)
         self._master_btn.clicked.connect(self._on_master_data)
         self._select_all_btn.clicked.connect(self._on_select_all)
+        self._beijing_time_cb.toggled.connect(self._on_beijing_time_toggled)
         self._change_status_btn.clicked.connect(self._on_change_status)
         self._export_btn.clicked.connect(self._on_export)
         self._table.itemSelectionChanged.connect(self._update_action_buttons)
@@ -328,15 +333,49 @@ class MainWindow(QMainWindow):
         self._rows = self._service.filter(**self._build_criteria())
         self._populate_table(self._rows)
 
+    def _cell_display(self, key: str, value: object) -> str:
+        if key == "status":
+            return _STATUS_LABELS.get(str(value), str(value))
+        if key in ("created_at", "updated_at"):
+            return format_display_timestamp(
+                str(value), use_beijing=self._beijing_time_cb.isChecked()
+            )
+        return str(value)
+
+    def _restore_selection(self, sns: list[str]) -> None:
+        if not sns:
+            return
+        wanted = set(sns)
+        self._table.clearSelection()
+        model = self._table.selectionModel()
+        table_model = self._table.model()
+        if model is None or table_model is None:
+            return
+        for row_idx in range(self._table.rowCount()):
+            item = self._table.item(row_idx, 0)
+            if item is None:
+                continue
+            sn = str(item.data(Qt.ItemDataRole.UserRole) or "")
+            if sn in wanted:
+                model.select(
+                    table_model.index(row_idx, 0),
+                    QItemSelectionModel.SelectionFlag.Select
+                    | QItemSelectionModel.SelectionFlag.Rows,
+                )
+
+    def _on_beijing_time_toggled(self, _checked: bool) -> None:
+        if not self._rows:
+            return
+        selected = self._selected_sns()
+        self._populate_table(self._rows)
+        self._restore_selection(selected)
+
     def _populate_table(self, rows: list[dict[str, Any]]) -> None:
         self._table.setRowCount(len(rows))
         for row_idx, row in enumerate(rows):
             for col_idx, (key, _) in enumerate(_TABLE_COLUMNS):
                 value = row.get(key, "")
-                if key == "status":
-                    display = _STATUS_LABELS.get(str(value), str(value))
-                else:
-                    display = str(value)
+                display = self._cell_display(key, value)
                 item = QTableWidgetItem(display)
                 item.setData(Qt.ItemDataRole.UserRole, row.get("sn"))
                 self._table.setItem(row_idx, col_idx, item)
@@ -382,10 +421,7 @@ class MainWindow(QMainWindow):
             row = updated[sn]
             for col_idx, (key, _) in enumerate(_TABLE_COLUMNS):
                 value = row.get(key, "")
-                if key == "status":
-                    display = _STATUS_LABELS.get(str(value), str(value))
-                else:
-                    display = str(value)
+                display = self._cell_display(key, value)
                 cell = self._table.item(row_idx, col_idx)
                 if cell is None:
                     cell = QTableWidgetItem(display)
