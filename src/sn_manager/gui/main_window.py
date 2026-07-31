@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from PySide6.QtCore import QDate, Qt
 from PySide6.QtWidgets import (
@@ -41,6 +42,27 @@ from sn_manager.gui.no_focus_delegate import (
     SKY_BLUE_SELECTION_STYLESHEET,
     install_no_focus_delegate,
 )
+
+_BEIJING = ZoneInfo("Asia/Shanghai")
+
+
+def format_display_timestamp(raw: str, *, use_beijing: bool) -> str:
+    """库内 UTC ISO 文本 → 展示字符串；解析失败则原样返回。"""
+    if not use_beijing:
+        return raw
+    text = raw.strip()
+    if not text:
+        return raw
+    try:
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        dt = datetime.fromisoformat(text)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(_BEIJING).strftime("%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return raw
+
 
 _TABLE_COLUMNS: list[tuple[str, str]] = [
     ("sn", "SN"),
