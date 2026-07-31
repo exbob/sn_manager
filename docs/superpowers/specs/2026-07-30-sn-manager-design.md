@@ -19,7 +19,7 @@
 | 打包 | Windows：GitHub Actions PyInstaller onedir zip；Linux：本地 `scripts/build.sh` |
 | 存储 | SQLite 单文件 `sn_manager.db` |
 | 生成 | 对话框；统一「数量 N」；N=1 为单个；成功后右侧展示并默认选中 |
-| 主数据 | 对话框维护（确认才落库，取消放弃）；生成时下拉 + 可临时新增并保存 |
+| 主数据 | 对话框维护（确认才落库，取消放弃）；生成/筛选仅下拉选择已有项，不可临时新增 |
 | 生产日期 | 默认当天，可改（支持补录） |
 | 状态 | `unused` / `used` / `void`；右下角「改状态」（在「导出」左侧）；作废不回收序号 |
 | 导出 | 须选中行；对话框选 Excel 或烧写 txt；烧写可选标 used；提供「全选」 |
@@ -55,10 +55,10 @@ sn_gui (PySide6)
 
 ### 4.1 主数据
 
-- `product_models(code TEXT PRIMARY KEY)` — 长度 5，字母数字大写
-- `hardware_batches(code TEXT PRIMARY KEY)` — 长度 2
-- `factories(code TEXT PRIMARY KEY, name TEXT)` — 长度 1；种子：1 自己生产、2 赛威思
-- `markets(code TEXT PRIMARY KEY, name TEXT)` — 长度 1；种子：0 不限、1 中国、2 韩国、3 美国
+- `product_models(code TEXT PRIMARY KEY, name TEXT NOT NULL)` — 编码长度 5，字母数字大写；名称非空、≤64
+- `hardware_batches(code TEXT PRIMARY KEY, name TEXT NOT NULL)` — 编码长度 2；名称非空、≤64
+- `factories(code TEXT PRIMARY KEY, name TEXT NOT NULL)` — 编码长度 1；名称 ≤64；种子：1 自己生产、2 赛威思
+- `markets(code TEXT PRIMARY KEY, name TEXT NOT NULL)` — 编码长度 1；名称 ≤64；种子：0 不限、1 中国、2 韩国、3 美国
 
 删除主数据：若该编码已被任意 `serial_numbers` 引用，则拒绝删除并提示；未被引用才可删。SN 行上的型号/批次等为冗余存储，不随主数据级联改写。
 
@@ -91,7 +91,7 @@ sn_gui (PySide6)
 ### 5.1 生成
 
 1. 校验各字段（含真实日历日期与 N≥1）；字母转大写
-2. 确认时：若型号/批次等不在主数据中，则一并插入主数据（「临时新增并保存」）
+2. 型号/批次/单位/市场须从主数据下拉选择（不在生成时写入主数据）
 3. 按 §4.3 分配并提交
 4. 返回本批 SN 列表；UI **用本批结果替换**右侧表，并默认全选本批
 
