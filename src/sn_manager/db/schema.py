@@ -2,11 +2,13 @@
 
 DDL = """
 CREATE TABLE IF NOT EXISTS product_models (
-    code TEXT PRIMARY KEY
+    code TEXT PRIMARY KEY,
+    name TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS hardware_batches (
-    code TEXT PRIMARY KEY
+    code TEXT PRIMARY KEY,
+    name TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS factories (
