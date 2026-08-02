@@ -508,18 +508,32 @@ class MainWindow(QMainWindow):
         self._restore_selection(selected)
 
     def _populate_table(self, rows: list[dict[str, Any]]) -> None:
-        self._table.setRowCount(len(rows))
-        for row_idx, row in enumerate(rows):
-            for col_idx, (key, _) in enumerate(_TABLE_COLUMNS):
-                value = row.get(key, "")
-                display = self._cell_display(key, value)
-                item = QTableWidgetItem(display)
-                item.setData(Qt.ItemDataRole.UserRole, row.get("sn"))
-                if key == "status":
-                    color = _STATUS_FOREGROUND.get(str(value))
-                    if color is not None:
-                        item.setForeground(color)
-                self._table.setItem(row_idx, col_idx, item)
+        # Avoid ResizeToContents recalculating on every setItem during re-fill.
+        table = self._table
+        header = table.horizontalHeader()
+        table.setUpdatesEnabled(False)
+        try:
+            table.clearSelection()
+            if header is not None:
+                header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+            table.setRowCount(0)
+            table.setRowCount(len(rows))
+            for row_idx, row in enumerate(rows):
+                for col_idx, (key, _) in enumerate(_TABLE_COLUMNS):
+                    value = row.get(key, "")
+                    display = self._cell_display(key, value)
+                    item = QTableWidgetItem(display)
+                    item.setData(Qt.ItemDataRole.UserRole, row.get("sn"))
+                    if key == "status":
+                        color = _STATUS_FOREGROUND.get(str(value))
+                        if color is not None:
+                            item.setForeground(color)
+                    table.setItem(row_idx, col_idx, item)
+            if header is not None:
+                header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+                header.setStretchLastSection(True)
+        finally:
+            table.setUpdatesEnabled(True)
         self._update_action_buttons()
 
     def _on_select_all(self) -> None:
