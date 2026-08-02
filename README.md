@@ -18,10 +18,11 @@
 
 ### 2.1 获取 Windows 发行版并启动
 
-1. 打开本仓库 GitHub **Releases**，下载 **`sn-manager-windows.zip`**。
+1. 打开本仓库 GitHub **Releases**，下载 **`sn-manager-windows-<version>.zip`**（version 形如 `v2.0.0-0-g29a42ac`，与构建时的 `git describe` 一致）。
 2. 也可在 Actions 中手动 **Run workflow** 做试构建，从该次运行的 Artifacts 下载同名 zip（不创建 Release）。
-3. 完整解压到本机目录，运行其中的 `sn-manager.exe`（勿只拷贝单个 exe）。
+3. 完整解压到本机目录，得到同名文件夹；运行其中的 `sn-manager.exe`（勿只拷贝单个 exe）。解压目录内另有 **`user-manual.md`**（使用手册）。
 4. 首次运行会在 exe **同目录**自动创建或使用 **`sn_manager.db`**。
+5. 主界面左下「**帮助**」可用系统默认程序打开同目录手册；左下角同时显示构建版本号。
 
 **数据库文件`sn_manager.db`非常重要，所有数据都保存在这里！**
 
@@ -77,7 +78,7 @@ uv run pytest -v
 | Windows | GitHub Actions：`Release Windows GUI`（tag 发 Release，或 `workflow_dispatch` 出 artifact） |
 | Linux | `./scripts/build.sh` → `dist/sn-manager/sn-manager` |
 
-构建前会生成 `app_version.txt`（不入库），打包进产物供主界面左下角显示版本。
+构建前会生成 `app_version.txt`（不入库），打包进产物供主界面左下角显示版本；构建后会把 `docs/user-manual.md` 复制为 onedir 根目录的 `user-manual.md`。Windows CI 的 zip / artifact 名为 `sn-manager-windows-<version>`。
 
 ### 3.4 软件架构
 

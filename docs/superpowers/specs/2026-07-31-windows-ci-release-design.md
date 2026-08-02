@@ -29,10 +29,11 @@
 - PyInstaller 参数与现有 Windows 脚本一致（onedir，非 onefile）：
   - `--noconfirm --windowed --name sn-manager --paths src --collect-submodules PySide6`
   - 入口：`src/sn_manager/__main__.py`
-- 将 `dist/sn-manager/` 打成 **`sn-manager-windows.zip`**
-- Artifact 名称：`sn-manager-windows`；Release 附件为同一 zip
-- 校验：zip（及必要时包内 `sn-manager.exe`）存在后再上传
+- 将 `dist/sn-manager/` 整理为 **`sn-manager-windows-<version>/`**（`<version>` 来自 `app_version.txt`，如 `v2.0.0-0-g29a42ac`），并打成同名 **`.zip`**（zip 内含一层同名顶层目录）
+- Artifact / Release 附件名与上述 zip 一致（形如 `sn-manager-windows-v2.0.0-0-g29a42ac`）
+- 校验：zip、包内 `sn-manager.exe`、以及同目录 `user-manual.md` 存在后再上传
 - 构建前用 `scripts/git-version.sh` 写出仓库根 `app_version.txt`，并以 `--add-data` 打进包，供主界面展示应用版本（见 `2026-07-31-app-version-display-design.md`）
+- 构建后将 `docs/user-manual.md` 复制为 onedir 根目录 `user-manual.md`（与 exe 同级）
 
 ## 4. 仓库改动范围
 
@@ -48,10 +49,10 @@
 
 ## 5. 文档对用户的说明要点
 
-- 正式发布：打 `v*` tag（如 `v0.1.0`）→ 等待 Action → 从 Release 下载 `sn-manager-windows.zip`
-- 试构建：Actions → 本 workflow → Run workflow → 从 Artifacts 下载
-- 解压后启动 `sn-manager.exe`；数据库仍为同目录 `sn_manager.db`
-- Linux：继续 `./scripts/build.sh`
+- 正式发布：打 `v*` tag（如 `v0.1.0`）→ 等待 Action → 从 Release 下载 `sn-manager-windows-<version>.zip`
+- 试构建：Actions → 本 workflow → Run workflow → 从 Artifacts 下载同名 zip
+- 解压后得到同名文件夹，启动 `sn-manager.exe`；同目录含 `sn_manager.db`（首次运行创建）与 `user-manual.md`
+- Linux：继续 `./scripts/build.sh`（产物目录名仍为 `dist/sn-manager`，会复制手册）
 
 ## 6. 非目标
 

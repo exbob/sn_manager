@@ -14,4 +14,6 @@ uv run pyinstaller \
   --add-data "app_version.txt:." \
   src/sn_manager/__main__.py
 
+cp -f docs/user-manual.md dist/sn-manager/user-manual.md
+
 echo "Built: dist/sn-manager/sn-manager"

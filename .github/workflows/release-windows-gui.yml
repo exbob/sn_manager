@@ -45,23 +45,40 @@ jobs:
             --add-data "app_version.txt;." `
             src/sn_manager/__main__.py
 
-      - name: Zip onedir and verify
+      - name: Copy user manual into onedir
         shell: pwsh
         run: |
-          $dir = Join-Path $env:GITHUB_WORKSPACE "dist/sn-manager"
-          $exe = Join-Path $dir "sn-manager.exe"
-          $zip = Join-Path $env:GITHUB_WORKSPACE "sn-manager-windows.zip"
+          Copy-Item -LiteralPath "docs/user-manual.md" `
+            -Destination "dist/sn-manager/user-manual.md" -Force
+
+      - name: Zip onedir with versioned folder name
+        shell: pwsh
+        run: |
+          $ver = (Get-Content -LiteralPath "app_version.txt" -Raw).Trim()
+          if ([string]::IsNullOrWhiteSpace($ver)) { $ver = "unknown" }
+          $base = "sn-manager-windows-$ver"
+          $src = Join-Path $env:GITHUB_WORKSPACE "dist/sn-manager"
+          $staged = Join-Path $env:GITHUB_WORKSPACE $base
+          $exe = Join-Path $src "sn-manager.exe"
+          $zip = Join-Path $env:GITHUB_WORKSPACE "$base.zip"
           if (-not (Test-Path -LiteralPath $exe)) { throw "Missing $exe" }
+          if (-not (Test-Path -LiteralPath (Join-Path $src "user-manual.md"))) {
+            throw "Missing user-manual.md in onedir"
+          }
+          if (Test-Path -LiteralPath $staged) { Remove-Item -LiteralPath $staged -Recurse -Force }
           if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
-          Compress-Archive -Path (Join-Path $dir "*") -DestinationPath $zip
+          Move-Item -LiteralPath $src -Destination $staged
+          Compress-Archive -Path $staged -DestinationPath $zip
           if (-not (Test-Path -LiteralPath $zip)) { throw "Missing $zip" }
           Get-Item -LiteralPath $zip | Format-List Name, Length
+          "ZIP_NAME=$base.zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "ARTIFACT_NAME=$base" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Upload workflow artifact (manual runs / backup)
         uses: actions/upload-artifact@v4
         with:
-          name: sn-manager-windows
-          path: sn-manager-windows.zip
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.ZIP_NAME }}
           if-no-files-found: error
 
       - name: Upload to GitHub Release
@@ -69,6 +86,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: sn-manager-windows.zip
+          files: ${{ env.ZIP_NAME }}
           fail_on_unmatched_files: true
           generate_release_notes: true
