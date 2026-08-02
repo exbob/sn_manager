@@ -12,7 +12,7 @@ from sn_manager.db.connection import connect
 def test_generate_and_filter(tmp_path: Path):
     conn = connect(tmp_path / "t.db")
     md.upsert_product(conn, "SVG14", "示例外壳机")
-    md.upsert_hardware_batch(conn, "05", "第五批")
+    md.upsert_hardware_batch(conn, "SVG14", "05", "第五批")
     svc = SnService(conn)
     rows = svc.generate(
         product_model="svg14",
@@ -28,18 +28,35 @@ def test_generate_and_filter(tmp_path: Path):
     assert len(found) == 1
 
 
-def test_generate_does_not_insert_master_data(tmp_path: Path):
+def test_generate_rejects_batch_not_under_model(tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    md.upsert_product(conn, "SVG14", "示例外壳机")
+    md.upsert_product(conn, "SCP4A", "采集器")
+    md.upsert_hardware_batch(conn, "SCP4A", "05", "别的批次")
+    svc = SnService(conn)
+    with pytest.raises(ValidationError, match="不属于该产品型号"):
+        svc.generate(
+            product_model="SVG14",
+            hw_batch="05",
+            factory="2",
+            market="1",
+            prod_date=date(2026, 1, 12),
+            count=1,
+        )
+
+
+def test_generate_rejects_missing_master_pair(tmp_path: Path):
     conn = connect(tmp_path / "t.db")
     svc = SnService(conn)
-    assert md.list_product_models(conn) == []
-    svc.generate(
-        product_model="SVG14",
-        hw_batch="05",
-        factory="2",
-        market="1",
-        prod_date=date(2026, 1, 12),
-        count=1,
-    )
+    with pytest.raises(ValidationError, match="不属于该产品型号"):
+        svc.generate(
+            product_model="SVG14",
+            hw_batch="05",
+            factory="2",
+            market="1",
+            prod_date=date(2026, 1, 12),
+            count=1,
+        )
     assert md.list_product_models(conn) == []
     assert md.list_hardware_batches(conn) == []
 
@@ -115,3 +132,40 @@ def test_replace_master_data_rejects_long_name(tmp_path: Path):
     )
     with pytest.raises(ValidationError, match="名称长度不能超过64"):
         svc.replace_master_data(snapshot)
+
+
+def test_replace_master_data_with_scoped_batches(tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    svc = SnService(conn)
+    snapshot = MasterSnapshot(
+        product_models=[("SVG14", "示波器"), ("SCP4A", "采集器")],
+        hardware_batches=[
+            ("SVG14", "01", "国产化FPGA"),
+            ("SCP4A", "01", "国产Wi-Fi模块"),
+        ],
+        factories=[("1", "自己生产"), ("2", "赛威思")],
+        markets=[("0", "不限"), ("1", "中国"), ("2", "韩国"), ("3", "美国")],
+    )
+    svc.replace_master_data(snapshot)
+    assert [(r["code"], r["name"]) for r in md.list_hardware_batches(conn, "SVG14")] == [
+        ("01", "国产化FPGA")
+    ]
+    assert [(r["code"], r["name"]) for r in md.list_hardware_batches(conn, "SCP4A")] == [
+        ("01", "国产Wi-Fi模块")
+    ]
+
+
+def test_replace_master_data_clears_model_and_batches(tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    md.upsert_product(conn, "SVG14", "示波器")
+    md.upsert_hardware_batch(conn, "SVG14", "01", "一批")
+    svc = SnService(conn)
+    snapshot = MasterSnapshot(
+        product_models=[],
+        hardware_batches=[],
+        factories=[("1", "自己生产"), ("2", "赛威思")],
+        markets=[("0", "不限"), ("1", "中国"), ("2", "韩国"), ("3", "美国")],
+    )
+    svc.replace_master_data(snapshot)
+    assert md.list_product_models(conn) == []
+    assert md.list_hardware_batches(conn) == []

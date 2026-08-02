@@ -109,13 +109,13 @@ def test_apply_master_data_alias(qapp, tmp_path: Path):
     svc = SnService(conn)
     snapshot = MasterSnapshot(
         product_models=[("ABC12", "样机")],
-        hardware_batches=[("01", "一批")],
+        hardware_batches=[("ABC12", "01", "一批")],
         factories=[("1", "自己生产"), ("2", "赛威思")],
         markets=[("0", "不限"), ("1", "中国"), ("2", "韩国"), ("3", "美国")],
     )
     svc.apply_master_data(snapshot)
     assert [r["code"] for r in md.list_product_models(conn)] == ["ABC12"]
-
+    assert md.list_hardware_batches(conn, "ABC12")[0]["name"] == "一批"
 
 def test_main_window_master_data_opens_dialog(qapp, tmp_path: Path, monkeypatch):
     conn = connect(tmp_path / "t.db")

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any, Callable
 
+
 from sn_manager.core.errors import ValidationError
 from sn_manager.core.status import Status
 from sn_manager.db import master_data as md
@@ -18,7 +19,7 @@ class MasterSnapshot:
     """主数据对话框提交的完整快照。"""
 
     product_models: list[tuple[str, str]]
-    hardware_batches: list[tuple[str, str]]
+    hardware_batches: list[tuple[str, str, str]]
     factories: list[tuple[str, str]]
     markets: list[tuple[str, str]]
 
@@ -39,6 +40,8 @@ class SnService:
         prod_date: date,
         count: int,
     ) -> list[dict[str, Any]]:
+        if not md.hardware_batch_exists(self.conn, product_model, hw_batch):
+            raise ValidationError("所选硬件批次不属于该产品型号（或不存在）")
         sns = ser.allocate_and_insert(
             self.conn,
             product_model=product_model,
@@ -63,24 +66,26 @@ class SnService:
     def replace_master_data(self, snapshot: MasterSnapshot) -> None:
         validated = self._validate_snapshot(snapshot)
         try:
-            self._sync_named(
-                md.list_product_models,
-                set(validated.product_models),
-                md.delete_product_model,
-                lambda code, name: md.upsert_product(
-                    self.conn, code, name, commit=False
-                ),
-                commit=False,
-            )
-            self._sync_named(
-                md.list_hardware_batches,
-                set(validated.hardware_batches),
-                md.delete_hardware_batch,
-                lambda code, name: md.upsert_hardware_batch(
-                    self.conn, code, name, commit=False
-                ),
-                commit=False,
-            )
+            for code, name in validated.product_models:
+                md.upsert_product(self.conn, code, name, commit=False)
+
+            desired_batches = {
+                (pm, bc): nm for pm, bc, nm in validated.hardware_batches
+            }
+            existing_batches = {
+                (r["product_model"], r["code"])
+                for r in md.list_hardware_batches(self.conn)
+            }
+            for key in existing_batches - set(desired_batches):
+                md.delete_hardware_batch(self.conn, key[0], key[1], commit=False)
+            for (pm, bc), nm in sorted(desired_batches.items()):
+                md.upsert_hardware_batch(self.conn, pm, bc, nm, commit=False)
+
+            desired_models = {code for code, _ in validated.product_models}
+            existing_models = {r["code"] for r in md.list_product_models(self.conn)}
+            for code in existing_models - desired_models:
+                md.delete_product_model(self.conn, code, commit=False)
+
             self._sync_named(
                 md.list_factories,
                 set(validated.factories),
@@ -105,15 +110,21 @@ class SnService:
             raise
 
     def _validate_snapshot(self, snapshot: MasterSnapshot) -> MasterSnapshot:
+        product_models = [
+            (md.validate_product_code(code), md.validate_name(name))
+            for code, name in snapshot.product_models
+        ]
+        model_codes = {code for code, _ in product_models}
+        hardware_batches: list[tuple[str, str, str]] = []
+        for pm, bc, name in snapshot.hardware_batches:
+            model = md.validate_product_code(pm)
+            batch = md.validate_hardware_batch_code(bc)
+            if model not in model_codes:
+                raise ValidationError(f"批次所属型号未在快照中：{model}")
+            hardware_batches.append((model, batch, md.validate_name(name)))
         return MasterSnapshot(
-            product_models=[
-                (md.validate_product_code(code), md.validate_name(name))
-                for code, name in snapshot.product_models
-            ],
-            hardware_batches=[
-                (md.validate_hardware_batch_code(code), md.validate_name(name))
-                for code, name in snapshot.hardware_batches
-            ],
+            product_models=product_models,
+            hardware_batches=hardware_batches,
             factories=[
                 (md.validate_factory_code(code), md.validate_name(name))
                 for code, name in snapshot.factories
