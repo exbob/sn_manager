@@ -14,7 +14,7 @@ from sn_manager.gui.main_window import MainWindow
 def test_generate_dialog_loads_named_items(qapp, tmp_path: Path):
     conn = connect(tmp_path / "t.db")
     md.upsert_product(conn, "SVG14", "示例外壳机")
-    md.upsert_hardware_batch(conn, "05", "第五批")
+    md.upsert_hardware_batch(conn, "SVG14", "05", "第五批")
     dlg = GenerateDialog(SnService(conn))
     assert dlg._model_combo.isEditable() is False
     assert dlg._batch_combo.isEditable() is False
@@ -24,13 +24,28 @@ def test_generate_dialog_loads_named_items(qapp, tmp_path: Path):
     assert dlg._factory_combo.itemText(0).startswith("1 ")
 
 
+def test_generate_dialog_batch_filtered_by_model(qapp, tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    md.upsert_product(conn, "SVG14", "示波器")
+    md.upsert_product(conn, "SCP4A", "采集器")
+    md.upsert_hardware_batch(conn, "SVG14", "01", "国产化FPGA")
+    md.upsert_hardware_batch(conn, "SCP4A", "01", "国产Wi-Fi模块")
+    dlg = GenerateDialog(SnService(conn))
+    dlg._model_combo.setCurrentIndex(dlg._model_combo.findData("SVG14"))
+    texts = [dlg._batch_combo.itemText(i) for i in range(dlg._batch_combo.count())]
+    assert texts == ["01 国产化FPGA"]
+    dlg._model_combo.setCurrentIndex(dlg._model_combo.findData("SCP4A"))
+    texts = [dlg._batch_combo.itemText(i) for i in range(dlg._batch_combo.count())]
+    assert texts == ["01 国产Wi-Fi模块"]
+
+
 def test_generate_dialog_returns_params_on_accept(qapp, tmp_path: Path):
     conn = connect(tmp_path / "t.db")
     md.upsert_product(conn, "SVG14", "示例外壳机")
-    md.upsert_hardware_batch(conn, "05", "第五批")
+    md.upsert_hardware_batch(conn, "SVG14", "05", "第五批")
     dlg = GenerateDialog(SnService(conn))
-    dlg._model_combo.setCurrentIndex(0)
-    dlg._batch_combo.setCurrentIndex(0)
+    dlg._model_combo.setCurrentIndex(dlg._model_combo.findData("SVG14"))
+    dlg._batch_combo.setCurrentIndex(dlg._batch_combo.findData("05"))
     dlg._factory_combo.setCurrentIndex(0)
     dlg._market_combo.setCurrentIndex(0)
     dlg._count_spin.setValue(3)
@@ -72,6 +87,8 @@ class _AcceptedGenerateDialog:
 
 def test_main_window_generate_replaces_table_and_selects(qapp, tmp_path: Path, monkeypatch):
     conn = connect(tmp_path / "t.db")
+    md.upsert_product(conn, "SVG14", "示例外壳机")
+    md.upsert_hardware_batch(conn, "SVG14", "05", "第五批")
     svc = SnService(conn)
     win = MainWindow(svc)
     monkeypatch.setattr(
@@ -86,6 +103,8 @@ def test_main_window_generate_replaces_table_and_selects(qapp, tmp_path: Path, m
 
 def test_main_window_generate_sequence_exhausted_warning(qapp, tmp_path: Path, monkeypatch):
     conn = connect(tmp_path / "t.db")
+    md.upsert_product(conn, "ABC12", "测试")
+    md.upsert_hardware_batch(conn, "ABC12", "01", "一批")
     fields = SnFields(
         version="A",
         product_model="ABC12",

@@ -92,14 +92,25 @@ class GenerateDialog(QDialog):
 
     def _load_master_data(self) -> None:
         conn = self._service.conn
+        self._model_combo.blockSignals(True)
+        self._model_combo.clear()
         for row in md.list_product_models(conn):
             self._model_combo.addItem(f"{row['code']} {row['name']}", row["code"])
-        for row in md.list_hardware_batches(conn):
-            self._batch_combo.addItem(f"{row['code']} {row['name']}", row["code"])
+        self._model_combo.blockSignals(False)
         for row in md.list_factories(conn):
             self._factory_combo.addItem(f"{row['code']} {row['name']}", row["code"])
         for row in md.list_markets(conn):
             self._market_combo.addItem(f"{row['code']} {row['name']}", row["code"])
+        self._model_combo.currentIndexChanged.connect(self._reload_batches)
+        self._reload_batches()
+
+    def _reload_batches(self) -> None:
+        self._batch_combo.clear()
+        model = self._model_combo.currentData()
+        if not model:
+            return
+        for row in md.list_hardware_batches(self._service.conn, str(model)):
+            self._batch_combo.addItem(f"{row['code']} {row['name']}", row["code"])
 
     def _on_accept(self) -> None:
         product_model = self._model_combo.currentData()
