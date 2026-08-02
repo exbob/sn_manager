@@ -23,6 +23,7 @@ def test_export_dialog_defaults(qapp):
     assert not dlg._excel_check.isChecked()
     assert dlg._mark_used_check.isChecked()
     assert dlg._path_edit.text() == str(app_dir())
+    assert dlg.minimumWidth() >= 520
 
 
 def test_export_dialog_returns_params_on_accept(qapp):
@@ -152,9 +153,14 @@ def test_main_window_export_excel_selected_rows(qapp, tmp_path: Path, monkeypatc
         def params(self) -> ExportParams:
             return self._params
 
+    opened: list = []
     monkeypatch.setattr(
         "sn_manager.gui.main_window.ExportDialog",
         _AcceptedExportDialog,
+    )
+    monkeypatch.setattr(
+        "sn_manager.gui.main_window.QDesktopServices.openUrl",
+        lambda url: opened.append(url) or True,
     )
     win._on_export()
 
@@ -163,6 +169,8 @@ def test_main_window_export_excel_selected_rows(qapp, tmp_path: Path, monkeypatc
     assert re.fullmatch(r"\d{14}\.xlsx", xlsx_files[0].name)
     wb = load_workbook(xlsx_files[0])
     assert wb.active["A2"].value == rows[0]["sn"]
+    assert len(opened) == 1
+    assert Path(opened[0].toLocalFile()) == tmp_path.resolve()
 
 
 def test_main_window_export_burn_mark_used(qapp, tmp_path: Path, monkeypatch):
@@ -198,9 +206,14 @@ def test_main_window_export_burn_mark_used(qapp, tmp_path: Path, monkeypatch):
         def params(self) -> ExportParams:
             return self._params
 
+    opened: list = []
     monkeypatch.setattr(
         "sn_manager.gui.main_window.ExportDialog",
         _AcceptedBurnDialog,
+    )
+    monkeypatch.setattr(
+        "sn_manager.gui.main_window.QDesktopServices.openUrl",
+        lambda url: opened.append(url) or True,
     )
     win._on_export()
 
@@ -209,6 +222,8 @@ def test_main_window_export_burn_mark_used(qapp, tmp_path: Path, monkeypatch):
     status_item = win._table.item(0, _status_col())
     assert status_item is not None
     assert status_item.text() == "已使用"
+    assert len(opened) == 1
+    assert Path(opened[0].toLocalFile()) == burn_dir.resolve()
 
 
 def test_main_window_export_burn_failure_shows_warning(qapp, tmp_path: Path, monkeypatch):
@@ -251,6 +266,7 @@ def test_main_window_export_burn_failure_shows_warning(qapp, tmp_path: Path, mon
     def boom(*_args, **_kwargs):
         raise OSError("write failed")
 
+    opened: list = []
     monkeypatch.setattr(
         "sn_manager.gui.main_window.ExportDialog",
         _AcceptedBurnDialog,
@@ -259,9 +275,14 @@ def test_main_window_export_burn_failure_shows_warning(qapp, tmp_path: Path, mon
         "sn_manager.gui.main_window.export_selected_and_mark_used",
         boom,
     )
+    monkeypatch.setattr(
+        "sn_manager.gui.main_window.QDesktopServices.openUrl",
+        lambda url: opened.append(url) or True,
+    )
     monkeypatch.setattr(QMessageBox, "warning", _capture_warning)
 
     win._on_export()
 
     assert warnings
+    assert not opened
     assert svc.filter(sn=sn)[0]["status"] == Status.UNUSED.value

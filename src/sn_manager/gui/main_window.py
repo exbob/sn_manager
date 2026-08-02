@@ -546,5 +546,13 @@ class MainWindow(QMainWindow):
             )
             if params.mark_used:
                 self._refresh_rows_for_sns([str(r["sn"]) for r in rows])
+            export_dir = params.export_directory.resolve()
+            ok = QDesktopServices.openUrl(QUrl.fromLocalFile(str(export_dir)))
+            if not ok:
+                QMessageBox.warning(
+                    self,
+                    "导出",
+                    f"导出已完成，但无法打开导出目录：\n{export_dir}",
+                )
         except OSError as exc:
             QMessageBox.warning(self, "导出失败", str(exc))

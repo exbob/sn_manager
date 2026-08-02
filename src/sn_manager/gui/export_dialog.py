@@ -39,6 +39,7 @@ class ExportDialog(QDialog):
         super().__init__(parent)
         self._params: ExportParams | None = None
         self.setWindowTitle("导出")
+        self.setMinimumWidth(520)
         self._build_ui()
 
     def params(self) -> ExportParams | None:
