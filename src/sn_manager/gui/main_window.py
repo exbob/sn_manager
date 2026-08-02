@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from PySide6.QtCore import QDate, QItemSelectionModel, Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -83,6 +84,11 @@ _STATUS_LABELS: dict[str, str] = {
     Status.UNUSED.value: "未使用",
     Status.USED.value: "已使用",
     Status.VOID.value: "作废",
+}
+
+_STATUS_FOREGROUND: dict[str, QColor] = {
+    Status.USED.value: QColor("#2E7D32"),
+    Status.VOID.value: QColor("#C62828"),
 }
 
 _STATUS_FILTER_OPTIONS: list[tuple[str, str | None]] = [
@@ -380,6 +386,10 @@ class MainWindow(QMainWindow):
                 display = self._cell_display(key, value)
                 item = QTableWidgetItem(display)
                 item.setData(Qt.ItemDataRole.UserRole, row.get("sn"))
+                if key == "status":
+                    color = _STATUS_FOREGROUND.get(str(value))
+                    if color is not None:
+                        item.setForeground(color)
                 self._table.setItem(row_idx, col_idx, item)
         self._update_action_buttons()
 
