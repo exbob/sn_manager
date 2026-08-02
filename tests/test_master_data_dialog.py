@@ -206,3 +206,22 @@ def test_master_add_row_starts_editing_first_cell(qapp, tmp_path: Path):
     assert table.currentRow() == before
     assert table.currentColumn() == 0
     assert table.state() == QAbstractItemView.State.EditingState
+
+
+def test_master_data_dialog_enables_batches_after_typing_model_code(
+    qapp, tmp_path: Path
+):
+    """新增空型号行后填入编码，应立即允许添加硬件批次。"""
+    conn = connect(tmp_path / "t.db")
+    dlg = MasterDataDialog(SnService(conn))
+    dlg._add_row(dlg._model_table)
+    row = dlg._model_table.rowCount() - 1
+    assert not dlg._batch_add_btn.isEnabled()
+    assert dlg._selected_model_code is None
+
+    item = dlg._model_table.item(row, 0)
+    assert item is not None
+    item.setText("SVG14")
+
+    assert dlg._selected_model_code == "SVG14"
+    assert dlg._batch_add_btn.isEnabled()

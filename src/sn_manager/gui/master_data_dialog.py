@@ -67,6 +67,7 @@ class MasterDataDialog(QDialog):
         layout.addWidget(buttons)
 
         self._model_table.itemSelectionChanged.connect(self._on_model_selection_changed)
+        self._model_table.itemChanged.connect(self._on_model_item_changed)
 
     def _build_model_tab(self) -> QWidget:
         panel = QWidget()
@@ -214,6 +215,28 @@ class MasterDataDialog(QDialog):
         if self._selected_model_code is None:
             return
         self._batches_by_model[self._selected_model_code] = self._read_batch_table()
+
+    def _on_model_item_changed(self, item: QTableWidgetItem) -> None:
+        """型号编码变更后同步批次控件状态（不依赖再次切换选中行）。"""
+        if item.column() != 0:
+            return
+        if item.row() != self._model_table.currentRow():
+            return
+        old_code = self._selected_model_code
+        new_code = item.text().strip().upper()
+        if old_code is not None and old_code != new_code:
+            self._flush_current_batches()
+            batches = self._batches_by_model.pop(old_code, [])
+            if new_code:
+                self._batches_by_model[new_code] = batches
+            self._selected_model_code = new_code or None
+            if not new_code:
+                self._fill_named_table(self._batch_table, [])
+                self._set_batch_controls_enabled(False)
+            else:
+                self._set_batch_controls_enabled(True)
+            return
+        self._on_model_selection_changed()
 
     def _on_model_selection_changed(self) -> None:
         self._flush_current_batches()
