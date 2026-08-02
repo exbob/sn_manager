@@ -174,7 +174,11 @@ git commit -m "feat(db): add count_serials and filter limit/offset"
 
 ```python
 def test_service_count_and_filter_pagination(tmp_path: Path):
+    from sn_manager.db import master_data as md
+
     conn = connect(tmp_path / "t.db")
+    md.upsert_product(conn, "SVG14", "示例外壳机")
+    md.upsert_hardware_batch(conn, "SVG14", "05", "第五批")
     svc = SnService(conn)
     svc.generate(
         product_model="SVG14",
@@ -266,8 +270,12 @@ from sn_manager.gui.main_window import MainWindow
 
 
 def test_query_paginates_and_count_is_total(qapp, tmp_path: Path, monkeypatch) -> None:
+    from sn_manager.db import master_data as md
+
     monkeypatch.setattr(mw, "PAGE_SIZE", 2)
     conn = connect(tmp_path / "t.db")
+    md.upsert_product(conn, "SVG14", "示例外壳机")
+    md.upsert_hardware_batch(conn, "SVG14", "05", "第五批")
     svc = SnService(conn)
     svc.generate(
         product_model="SVG14",
@@ -482,8 +490,12 @@ git commit -m "feat(gui): paginate query results with busy state"
 
 ```python
 def test_generate_uses_memory_pagination(qapp, tmp_path: Path, monkeypatch) -> None:
+    from sn_manager.db import master_data as md
+
     monkeypatch.setattr(mw, "PAGE_SIZE", 2)
     conn = connect(tmp_path / "t.db")
+    md.upsert_product(conn, "SVG14", "示例外壳机")
+    md.upsert_hardware_batch(conn, "SVG14", "05", "第五批")
     svc = SnService(conn)
     win = MainWindow(svc)
     rows = svc.generate(
