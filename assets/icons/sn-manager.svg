@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <circle cx="128" cy="128" r="114" fill="#EA580C"/>
+  <text
+    x="128"
+    y="128"
+    text-anchor="middle"
+    dominant-baseline="central"
+    font-family="Segoe UI, Arial, Helvetica, sans-serif"
+    font-size="96"
+    font-weight="700"
+    fill="#FFFFFF"
+    letter-spacing="4"
+  >SN</text>
+</svg>
