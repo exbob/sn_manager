@@ -75,3 +75,41 @@ def test_exhaust_raises(tmp_path: Path):
     conn.commit()
     with pytest.raises(SequenceExhaustedError):
         ser.allocate_and_insert(conn, count=1, **kwargs)
+
+
+def test_filter_limit_offset_and_count(tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    ser.allocate_and_insert(
+        conn,
+        product_model="SVG14",
+        hw_batch="05",
+        factory="1",
+        market="0",
+        prod_date=date(2026, 8, 2),
+        count=5,
+    )
+    assert ser.count_serials(conn) == 5
+    assert ser.count_serials(conn, product_model="SVG14") == 5
+    assert ser.count_serials(conn, product_model="ZZZZZ") == 0
+
+    page1 = ser.filter_serials(conn, limit=2, offset=0)
+    page2 = ser.filter_serials(conn, limit=2, offset=2)
+    page3 = ser.filter_serials(conn, limit=2, offset=4)
+    assert len(page1) == 2
+    assert len(page2) == 2
+    assert len(page3) == 1
+    all_sns = [r["sn"] for r in ser.filter_serials(conn)]
+    assert [r["sn"] for r in page1] + [r["sn"] for r in page2] + [
+        r["sn"] for r in page3
+    ] == all_sns
+
+    # 无 limit 时行为不变（全量）
+    assert len(ser.filter_serials(conn)) == 5
+
+
+def test_filter_limit_offset_rejects_negative(tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    with pytest.raises(ValueError):
+        ser.filter_serials(conn, limit=-1)
+    with pytest.raises(ValueError):
+        ser.filter_serials(conn, limit=1, offset=-1)

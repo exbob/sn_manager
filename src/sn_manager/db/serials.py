@@ -133,8 +133,7 @@ def allocate_and_insert(
     return sns
 
 
-def filter_serials(conn: sqlite3.Connection, **filters: Any) -> list[dict[str, Any]]:
-    """按可选条件筛选 serial_numbers，返回字典列表。"""
+def _build_filter_clause(filters: dict[str, Any]) -> tuple[list[str], list[Any]]:
     conditions: list[str] = []
     params: list[Any] = []
 
@@ -159,10 +158,42 @@ def filter_serials(conn: sqlite3.Connection, **filters: Any) -> list[dict[str, A
         else:
             raise ValueError(f"unknown filter: {key}")
 
+    return conditions, params
+
+
+def count_serials(conn: sqlite3.Connection, **filters: Any) -> int:
+    """按可选条件统计 serial_numbers 行数。"""
+    conditions, params = _build_filter_clause(filters)
+    sql = "SELECT COUNT(*) AS n FROM serial_numbers"
+    if conditions:
+        sql += " WHERE " + " AND ".join(conditions)
+    row = conn.execute(sql, params).fetchone()
+    return int(row["n"])
+
+
+def filter_serials(
+    conn: sqlite3.Connection,
+    *,
+    limit: int | None = None,
+    offset: int | None = None,
+    **filters: Any,
+) -> list[dict[str, Any]]:
+    """按可选条件筛选 serial_numbers，返回字典列表。"""
+    if limit is not None and limit < 0:
+        raise ValueError("limit must be >= 0")
+    if offset is not None and offset < 0:
+        raise ValueError("offset must be >= 0")
+    if offset is not None and limit is None:
+        raise ValueError("offset requires limit")
+
+    conditions, params = _build_filter_clause(filters)
     sql = "SELECT * FROM serial_numbers"
     if conditions:
         sql += " WHERE " + " AND ".join(conditions)
     sql += " ORDER BY created_at DESC, sn"
+    if limit is not None:
+        sql += " LIMIT ? OFFSET ?"
+        params.extend([limit, 0 if offset is None else offset])
 
     rows = conn.execute(sql, params).fetchall()
     return [dict(row) for row in rows]
