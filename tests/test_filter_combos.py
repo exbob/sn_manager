@@ -22,10 +22,37 @@ def test_filter_fields_are_combos_with_blank(qapp, tmp_path: Path):
     ]
 
 
+def test_filter_batch_disabled_until_model_selected(qapp, tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    md.upsert_product(conn, "SVG14", "示波器")
+    md.upsert_hardware_batch(conn, "SVG14", "01", "一批")
+    win = MainWindow(SnService(conn))
+    assert win._model_combo.currentData() in (None, "")
+    assert win._batch_combo.count() == 1
+    assert win._batch_combo.itemData(0) in (None, "")
+
+
+def test_filter_batch_lists_only_selected_model(qapp, tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    md.upsert_product(conn, "SVG14", "示波器")
+    md.upsert_product(conn, "SCP4A", "采集器")
+    md.upsert_hardware_batch(conn, "SVG14", "01", "国产化FPGA")
+    md.upsert_hardware_batch(conn, "SCP4A", "01", "国产Wi-Fi模块")
+    win = MainWindow(SnService(conn))
+    win._model_combo.setCurrentIndex(win._model_combo.findData("SVG14"))
+    assert win._batch_combo.findData("01") > 0
+    assert "01 国产化FPGA" in [
+        win._batch_combo.itemText(i) for i in range(win._batch_combo.count())
+    ]
+    assert "国产Wi-Fi" not in "".join(
+        win._batch_combo.itemText(i) for i in range(win._batch_combo.count())
+    )
+
+
 def test_build_criteria_uses_combo_data(qapp, tmp_path: Path):
     conn = connect(tmp_path / "t.db")
     md.upsert_product(conn, "SVG14", "示例外壳机")
-    md.upsert_hardware_batch(conn, "05", "第五批")
+    md.upsert_hardware_batch(conn, "SVG14", "05", "第五批")
     win = MainWindow(SnService(conn))
     win._model_combo.setCurrentIndex(win._model_combo.findData("SVG14"))
     win._batch_combo.setCurrentIndex(win._batch_combo.findData("05"))

@@ -249,18 +249,35 @@ class MainWindow(QMainWindow):
     def _reload_filter_master_combos(self) -> None:
         def fill(combo: QComboBox, rows: list[dict[str, Any]]) -> None:
             current = combo.currentData()
+            combo.blockSignals(True)
             combo.clear()
             combo.addItem("", None)
             for row in rows:
                 combo.addItem(f"{row['code']} {row['name']}", row["code"])
             idx = combo.findData(current)
             combo.setCurrentIndex(idx if idx >= 0 else 0)
+            combo.blockSignals(False)
 
         conn = self._service.conn
         fill(self._model_combo, md.list_product_models(conn))
-        fill(self._batch_combo, md.list_hardware_batches(conn))
         fill(self._factory_combo, md.list_factories(conn))
         fill(self._market_combo, md.list_markets(conn))
+        self._reload_filter_batch_combo()
+
+    def _reload_filter_batch_combo(self) -> None:
+        current = self._batch_combo.currentData()
+        self._batch_combo.blockSignals(True)
+        self._batch_combo.clear()
+        self._batch_combo.addItem("", None)
+        model = self._model_combo.currentData()
+        if model:
+            for row in md.list_hardware_batches(self._service.conn, str(model)):
+                self._batch_combo.addItem(f"{row['code']} {row['name']}", row["code"])
+            idx = self._batch_combo.findData(current)
+            self._batch_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        else:
+            self._batch_combo.setCurrentIndex(0)
+        self._batch_combo.blockSignals(False)
 
     def _build_results_panel(self) -> QWidget:
         panel = QWidget()
@@ -304,6 +321,7 @@ class MainWindow(QMainWindow):
     def _wire_signals(self) -> None:
         self._date_from_enabled.toggled.connect(self._date_from_edit.setEnabled)
         self._date_to_enabled.toggled.connect(self._date_to_edit.setEnabled)
+        self._model_combo.currentIndexChanged.connect(self._reload_filter_batch_combo)
         self._query_btn.clicked.connect(self._on_query)
         self._generate_btn.clicked.connect(self._on_generate)
         self._master_btn.clicked.connect(self._on_master_data)
