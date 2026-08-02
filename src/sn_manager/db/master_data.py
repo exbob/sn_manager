@@ -8,11 +8,10 @@ from typing import Any
 from sn_manager.core.errors import ValidationError
 from sn_manager.core.version_a import normalize_alnum
 
-_MASTER_TABLES = frozenset({"product_models", "hardware_batches", "factories", "markets"})
+_MASTER_TABLES = frozenset({"product_models", "factories", "markets"})
 
 _REF_COLUMN: dict[str, str] = {
     "product_models": "product_model",
-    "hardware_batches": "hw_batch",
     "factories": "factory",
     "markets": "market",
 }
@@ -63,8 +62,22 @@ def list_product_models(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     return list_codes(conn, "product_models")
 
 
-def list_hardware_batches(conn: sqlite3.Connection) -> list[dict[str, Any]]:
-    return list_codes(conn, "hardware_batches")
+def list_hardware_batches(
+    conn: sqlite3.Connection, product_model: str | None = None
+) -> list[dict[str, Any]]:
+    if product_model is None:
+        rows = conn.execute(
+            "SELECT product_model, code, name FROM hardware_batches "
+            "ORDER BY product_model, code"
+        ).fetchall()
+    else:
+        model = validate_product_code(product_model)
+        rows = conn.execute(
+            "SELECT product_model, code, name FROM hardware_batches "
+            "WHERE product_model = ? ORDER BY code",
+            (model,),
+        ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def list_factories(conn: sqlite3.Connection) -> list[dict[str, Any]]:
@@ -97,18 +110,44 @@ def add_product_model(conn: sqlite3.Connection, code: str, name: str) -> None:
 
 
 def upsert_hardware_batch(
-    conn: sqlite3.Connection, code: str, name: str, *, commit: bool = True
+    conn: sqlite3.Connection,
+    product_model: str,
+    code: str,
+    name: str,
+    *,
+    commit: bool = True,
 ) -> None:
-    normalized = validate_hardware_batch_code(code)
+    model = validate_product_code(product_model)
+    batch = validate_hardware_batch_code(code)
+    exists = conn.execute(
+        "SELECT 1 FROM product_models WHERE code = ? LIMIT 1", (model,)
+    ).fetchone()
+    if exists is None:
+        raise ValidationError(f"产品型号不存在：{model}")
     conn.execute(
-        "INSERT OR REPLACE INTO hardware_batches (code, name) VALUES (?, ?)",
-        (normalized, validate_name(name)),
+        "INSERT OR REPLACE INTO hardware_batches (product_model, code, name) "
+        "VALUES (?, ?, ?)",
+        (model, batch, validate_name(name)),
     )
     _maybe_commit(conn, commit=commit)
 
 
-def add_hardware_batch(conn: sqlite3.Connection, code: str, name: str) -> None:
-    upsert_hardware_batch(conn, code, name)
+def add_hardware_batch(
+    conn: sqlite3.Connection, product_model: str, code: str, name: str
+) -> None:
+    upsert_hardware_batch(conn, product_model, code, name)
+
+
+def hardware_batch_exists(
+    conn: sqlite3.Connection, product_model: str, code: str
+) -> bool:
+    model = validate_product_code(product_model)
+    batch = validate_hardware_batch_code(code)
+    row = conn.execute(
+        "SELECT 1 FROM hardware_batches WHERE product_model = ? AND code = ? LIMIT 1",
+        (model, batch),
+    ).fetchone()
+    return row is not None
 
 
 def upsert_factory(
@@ -147,17 +186,36 @@ def delete_product_model(
     conn: sqlite3.Connection, code: str, *, commit: bool = True
 ) -> None:
     normalized = code.upper()
+    child = conn.execute(
+        "SELECT 1 FROM hardware_batches WHERE product_model = ? LIMIT 1",
+        (normalized,),
+    ).fetchone()
+    if child is not None:
+        raise ValidationError("请先删除该型号下的硬件批次")
     _assert_not_referenced(conn, "product_models", normalized)
     conn.execute("DELETE FROM product_models WHERE code = ?", (normalized,))
     _maybe_commit(conn, commit=commit)
 
 
 def delete_hardware_batch(
-    conn: sqlite3.Connection, code: str, *, commit: bool = True
+    conn: sqlite3.Connection,
+    product_model: str,
+    code: str,
+    *,
+    commit: bool = True,
 ) -> None:
-    normalized = code.upper()
-    _assert_not_referenced(conn, "hardware_batches", normalized)
-    conn.execute("DELETE FROM hardware_batches WHERE code = ?", (normalized,))
+    model = product_model.upper()
+    batch = code.upper()
+    row = conn.execute(
+        "SELECT 1 FROM serial_numbers WHERE product_model = ? AND hw_batch = ? LIMIT 1",
+        (model, batch),
+    ).fetchone()
+    if row is not None:
+        raise ValidationError(f"编码 {batch} 已被序列号引用，无法删除")
+    conn.execute(
+        "DELETE FROM hardware_batches WHERE product_model = ? AND code = ?",
+        (model, batch),
+    )
     _maybe_commit(conn, commit=commit)
 
 

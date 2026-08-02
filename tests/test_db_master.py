@@ -93,6 +93,87 @@ def test_upsert_rejects_invalid_product_code(tmp_path: Path):
 
 def test_upsert_rejects_non_alnum_batch(tmp_path: Path):
     conn = connect(tmp_path / "t.db")
+    md.add_product_model(conn, "SVG14", "示波器")
     with pytest.raises(ValidationError, match="硬件批次只能包含字母和数字"):
-        md.upsert_hardware_batch(conn, "0!", "坏批次")
+        md.upsert_hardware_batch(conn, "SVG14", "0!", "坏批次")
     assert md.list_hardware_batches(conn) == []
+
+
+def test_same_batch_code_different_models_and_names(tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    md.add_product_model(conn, "SVG14", "示波器")
+    md.add_product_model(conn, "SCP4A", "采集器")
+    md.add_hardware_batch(conn, "SVG14", "01", "国产化FPGA")
+    md.add_hardware_batch(conn, "SCP4A", "01", "国产Wi-Fi模块")
+    svg = md.list_hardware_batches(conn, "SVG14")
+    scp = md.list_hardware_batches(conn, "SCP4A")
+    assert [(r["code"], r["name"]) for r in svg] == [("01", "国产化FPGA")]
+    assert [(r["code"], r["name"]) for r in scp] == [("01", "国产Wi-Fi模块")]
+
+
+def test_list_hardware_batches_all_includes_product_model(tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    md.add_product_model(conn, "SVG14", "示波器")
+    md.add_hardware_batch(conn, "SVG14", "01", "一批")
+    rows = md.list_hardware_batches(conn)
+    assert rows[0]["product_model"] == "SVG14"
+
+
+def test_upsert_batch_requires_existing_product(tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    with pytest.raises(ValidationError, match="产品型号"):
+        md.upsert_hardware_batch(conn, "SVG14", "01", "一批")
+
+
+def test_delete_product_with_batches_raises(tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    md.add_product_model(conn, "SVG14", "示波器")
+    md.add_hardware_batch(conn, "SVG14", "01", "一批")
+    with pytest.raises(ValidationError, match="请先删除该型号下的硬件批次"):
+        md.delete_product_model(conn, "SVG14")
+
+
+def test_delete_batch_referenced_by_serial_raises(tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    md.add_product_model(conn, "SVG14", "测试型号")
+    md.add_hardware_batch(conn, "SVG14", "05", "第五批")
+    conn.execute(
+        "INSERT INTO serial_numbers("
+        "sn, version, product_model, hw_batch, factory, market, "
+        "prod_year, prod_month, prod_day, seq, status, created_at, updated_at"
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (
+            "ASVG140521261CF000",
+            "A",
+            "SVG14",
+            "05",
+            "1",
+            "0",
+            2026,
+            1,
+            2,
+            0,
+            "unused",
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z",
+        ),
+    )
+    conn.commit()
+    with pytest.raises(ValidationError, match="已被序列号引用"):
+        md.delete_hardware_batch(conn, "SVG14", "05")
+
+
+def test_delete_unreferenced_batch(tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    md.add_product_model(conn, "SVG14", "示波器")
+    md.add_hardware_batch(conn, "SVG14", "01", "一批")
+    md.delete_hardware_batch(conn, "SVG14", "01")
+    assert md.list_hardware_batches(conn, "SVG14") == []
+
+
+def test_hardware_batch_exists(tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    md.add_product_model(conn, "SVG14", "示波器")
+    md.add_hardware_batch(conn, "SVG14", "01", "一批")
+    assert md.hardware_batch_exists(conn, "svg14", "01") is True
+    assert md.hardware_batch_exists(conn, "SVG14", "99") is False

@@ -7,8 +7,10 @@ CREATE TABLE IF NOT EXISTS product_models (
 );
 
 CREATE TABLE IF NOT EXISTS hardware_batches (
-    code TEXT PRIMARY KEY,
-    name TEXT NOT NULL
+    product_model TEXT NOT NULL,
+    code TEXT NOT NULL,
+    name TEXT NOT NULL,
+    PRIMARY KEY (product_model, code)
 );
 
 CREATE TABLE IF NOT EXISTS factories (
