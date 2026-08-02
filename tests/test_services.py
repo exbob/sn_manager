@@ -169,3 +169,21 @@ def test_replace_master_data_clears_model_and_batches(tmp_path: Path):
     svc.replace_master_data(snapshot)
     assert md.list_product_models(conn) == []
     assert md.list_hardware_batches(conn) == []
+
+
+def test_service_count_and_filter_pagination(tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    md.upsert_product(conn, "SVG14", "示例外壳机")
+    md.upsert_hardware_batch(conn, "SVG14", "05", "第五批")
+    svc = SnService(conn)
+    svc.generate(
+        product_model="SVG14",
+        hw_batch="05",
+        factory="1",
+        market="0",
+        prod_date=date(2026, 8, 2),
+        count=3,
+    )
+    assert svc.count() == 3
+    assert len(svc.filter(limit=2, offset=0)) == 2
+    assert len(svc.filter(limit=2, offset=2)) == 1

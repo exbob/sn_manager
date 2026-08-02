@@ -53,8 +53,17 @@ class SnService:
         )
         return [ser.filter_serials(self.conn, sn=sn)[0] for sn in sns]
 
-    def filter(self, **criteria: Any) -> list[dict[str, Any]]:
-        return ser.filter_serials(self.conn, **criteria)
+    def filter(
+        self,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+        **criteria: Any,
+    ) -> list[dict[str, Any]]:
+        return ser.filter_serials(self.conn, limit=limit, offset=offset, **criteria)
+
+    def count(self, **criteria: Any) -> int:
+        return ser.count_serials(self.conn, **criteria)
 
     def set_status(self, sns: list[str], status: Status) -> None:
         ser.update_statuses(self.conn, sns, status)
