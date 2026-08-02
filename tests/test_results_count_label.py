@@ -42,6 +42,7 @@ def test_count_label_after_populate_and_select(qapp, tmp_path: Path) -> None:
         ["SN000000000000001", "SN000000000000002", "SN000000000000003"]
     )
     win._rows = rows
+    win._total_count = 3
     win._populate_table(rows)
     assert win._count_label.text() == "共 3 条，已选 0 条"
 

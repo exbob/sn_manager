@@ -8,6 +8,7 @@ from typing import Any
 from PySide6.QtCore import QDate, QItemSelectionModel, Qt, QUrl
 from PySide6.QtGui import QColor, QDesktopServices
 from PySide6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QDateEdit,
@@ -105,6 +106,8 @@ _CHANGE_STATUS_OPTIONS: list[tuple[str, Status]] = [
     ("作废", Status.VOID),
 ]
 
+PAGE_SIZE = 200
+
 
 class ChangeStatusDialog(QDialog):
     """选择目标状态；Accepted 后可通过 status() 读取。"""
@@ -154,9 +157,14 @@ class MainWindow(QMainWindow):
         super().__init__(parent)
         self._service = service
         self._rows: list[dict[str, Any]] = []
+        self._total_count = 0
+        self._page = 1
+        self._query_criteria: dict[str, Any] = {}
+        self._memory_rows: list[dict[str, Any]] | None = None
         self._build_ui()
         self._wire_signals()
         self._update_action_buttons()
+        self._update_page_controls()
 
     def _build_ui(self) -> None:
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -310,6 +318,14 @@ class MainWindow(QMainWindow):
         bottom_row = QHBoxLayout()
         self._count_label = QLabel("共 0 条，已选 0 条")
         bottom_row.addWidget(self._count_label)
+        self._prev_page_btn = QPushButton("上一页")
+        self._prev_page_btn.setEnabled(False)
+        bottom_row.addWidget(self._prev_page_btn)
+        self._page_label = QLabel("第 1 / 1 页")
+        bottom_row.addWidget(self._page_label)
+        self._next_page_btn = QPushButton("下一页")
+        self._next_page_btn.setEnabled(False)
+        bottom_row.addWidget(self._next_page_btn)
         bottom_row.addStretch()
         self._change_status_btn = QPushButton("改状态")
         self._export_btn = QPushButton("导出")
@@ -330,6 +346,8 @@ class MainWindow(QMainWindow):
         self._beijing_time_cb.toggled.connect(self._on_beijing_time_toggled)
         self._change_status_btn.clicked.connect(self._on_change_status)
         self._export_btn.clicked.connect(self._on_export)
+        self._prev_page_btn.clicked.connect(self._on_prev_page)
+        self._next_page_btn.clicked.connect(self._on_next_page)
         self._table.itemSelectionChanged.connect(self._update_action_buttons)
 
     def _build_criteria(self) -> dict[str, Any]:
@@ -360,9 +378,97 @@ class MainWindow(QMainWindow):
 
         return criteria
 
-    def _on_query(self) -> None:
-        self._rows = self._service.filter(**self._build_criteria())
+    def _page_count(self) -> int:
+        if self._total_count <= 0:
+            return 1
+        return max(1, (self._total_count + PAGE_SIZE - 1) // PAGE_SIZE)
+
+    def _update_page_controls(self) -> None:
+        p = self._page_count()
+        self._page_label.setText(f"第 {self._page} / {p} 页")
+        self._prev_page_btn.setEnabled(self._page > 1)
+        self._next_page_btn.setEnabled(self._page < p)
+
+    def _set_query_busy(self, busy: bool) -> None:
+        self._query_btn.setText("查询中…" if busy else "查询")
+        self._query_btn.setEnabled(not busy)
+        self._generate_btn.setEnabled(not busy)
+        self._master_btn.setEnabled(not busy)
+        self._select_all_btn.setEnabled(not busy)
+        if busy:
+            self._change_status_btn.setEnabled(False)
+            self._export_btn.setEnabled(False)
+            self._prev_page_btn.setEnabled(False)
+            self._next_page_btn.setEnabled(False)
+        else:
+            self._update_action_buttons()
+            self._update_page_controls()
+
+    def _show_memory_page(self) -> None:
+        assert self._memory_rows is not None
+        start = (self._page - 1) * PAGE_SIZE
+        end = start + PAGE_SIZE
+        self._rows = self._memory_rows[start:end]
         self._populate_table(self._rows)
+        self._update_page_controls()
+
+    def _load_db_page(self, *, show_busy: bool) -> None:
+        if show_busy:
+            self._set_query_busy(True)
+            app = QApplication.instance()
+            if app is not None:
+                app.processEvents()
+        try:
+            offset = (self._page - 1) * PAGE_SIZE
+            self._rows = self._service.filter(
+                limit=PAGE_SIZE, offset=offset, **self._query_criteria
+            )
+            self._populate_table(self._rows)
+            self._update_page_controls()
+        except Exception as exc:
+            QMessageBox.warning(self, "查询失败", str(exc))
+        finally:
+            if show_busy:
+                self._set_query_busy(False)
+
+    def _on_query(self) -> None:
+        self._memory_rows = None
+        self._set_query_busy(True)
+        app = QApplication.instance()
+        if app is not None:
+            app.processEvents()
+        try:
+            criteria = self._build_criteria()
+            self._total_count = self._service.count(**criteria)
+            self._query_criteria = criteria
+            self._page = 1
+            self._rows = self._service.filter(
+                limit=PAGE_SIZE, offset=0, **criteria
+            )
+            self._populate_table(self._rows)
+            self._update_page_controls()
+        except Exception as exc:
+            QMessageBox.warning(self, "查询失败", str(exc))
+        finally:
+            self._set_query_busy(False)
+
+    def _on_prev_page(self) -> None:
+        if self._page <= 1:
+            return
+        self._page -= 1
+        if self._memory_rows is not None:
+            self._show_memory_page()
+        else:
+            self._load_db_page(show_busy=True)
+
+    def _on_next_page(self) -> None:
+        if self._page >= self._page_count():
+            return
+        self._page += 1
+        if self._memory_rows is not None:
+            self._show_memory_page()
+        else:
+            self._load_db_page(show_busy=True)
 
     def _cell_display(self, key: str, value: object) -> str:
         if key == "status":
@@ -484,9 +590,14 @@ class MainWindow(QMainWindow):
         self._rows = [
             updated[r["sn"]] if r.get("sn") in updated else r for r in self._rows
         ]
+        if self._memory_rows is not None:
+            self._memory_rows = [
+                updated[r["sn"]] if r.get("sn") in updated else r
+                for r in self._memory_rows
+            ]
 
     def _update_count_label(self) -> None:
-        n = self._table.rowCount()
+        n = self._total_count
         m = len(self._selected_sns())
         self._count_label.setText(f"共 {n} 条，已选 {m} 条")
 
@@ -515,8 +626,14 @@ class MainWindow(QMainWindow):
         except SnError as exc:
             QMessageBox.warning(self, "生成失败", str(exc))
             return
-        self._rows = rows
-        self._populate_table(rows)
+        self._apply_generated_rows(rows)
+
+    def _apply_generated_rows(self, rows: list[dict[str, Any]]) -> None:
+        self._memory_rows = rows
+        self._total_count = len(rows)
+        self._page = 1
+        self._query_criteria = {}
+        self._show_memory_page()
         self._table.selectAll()
 
     def _on_master_data(self) -> None:
