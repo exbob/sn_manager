@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
-from PySide6.QtCore import QDate, QItemSelectionModel, Qt
-from PySide6.QtGui import QColor
+from PySide6.QtCore import QDate, QItemSelectionModel, Qt, QUrl
+from PySide6.QtGui import QColor, QDesktopServices
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 )
 
 from sn_manager.app.export import export_selected_and_mark_used
+from sn_manager.app.paths import resolve_user_manual_path
 from sn_manager.app.services import SnService
 from sn_manager.app.version import resolve_app_version
 from sn_manager.core.errors import SnError
@@ -230,6 +231,9 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._master_btn)
         layout.addStretch()
 
+        self._help_btn = QPushButton("帮助")
+        layout.addWidget(self._help_btn)
+
         self._version_label = QLabel(resolve_app_version())
         self._version_label.setAlignment(
             Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
@@ -303,6 +307,7 @@ class MainWindow(QMainWindow):
         self._query_btn.clicked.connect(self._on_query)
         self._generate_btn.clicked.connect(self._on_generate)
         self._master_btn.clicked.connect(self._on_master_data)
+        self._help_btn.clicked.connect(self._on_help)
         self._select_all_btn.clicked.connect(self._on_select_all)
         self._beijing_time_cb.toggled.connect(self._on_beijing_time_toggled)
         self._change_status_btn.clicked.connect(self._on_change_status)
@@ -396,6 +401,15 @@ class MainWindow(QMainWindow):
     def _on_select_all(self) -> None:
         self._table.selectAll()
 
+    def _on_help(self) -> None:
+        path = resolve_user_manual_path()
+        if path is None:
+            QMessageBox.warning(self, "帮助", "未找到使用手册文件（user-manual.md）。")
+            return
+        ok = QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+        if not ok:
+            QMessageBox.warning(self, "帮助", f"无法打开使用手册：\n{path}")
+
     def _selected_sns(self) -> list[str]:
         sns: list[str] = []
         for index in self._table.selectionModel().selectedRows():
@@ -442,6 +456,12 @@ class MainWindow(QMainWindow):
                     self._table.setItem(row_idx, col_idx, cell)
                 else:
                     cell.setText(display)
+                if key == "status":
+                    color = _STATUS_FOREGROUND.get(str(value))
+                    if color is not None:
+                        cell.setForeground(color)
+                    else:
+                        cell.setData(Qt.ItemDataRole.ForegroundRole, None)
 
         self._rows = [
             updated[r["sn"]] if r.get("sn") in updated else r for r in self._rows
