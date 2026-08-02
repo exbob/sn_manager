@@ -13,7 +13,13 @@ from sn_manager.app.export import (
 )
 from sn_manager.app.services import SnService
 from sn_manager.core.status import Status
+from sn_manager.db import master_data as md
 from sn_manager.db.connection import connect
+
+
+def _seed_svg14(conn) -> None:
+    md.upsert_product(conn, "SVG14", "示例外壳机")
+    md.upsert_hardware_batch(conn, "SVG14", "05", "第五批")
 
 
 def test_excel_and_burn(tmp_path: Path):
@@ -56,6 +62,7 @@ def test_burn_txt_overwrites_existing(tmp_path: Path):
 
 def test_export_burn_and_mark_used(tmp_path: Path):
     conn = connect(tmp_path / "t.db")
+    _seed_svg14(conn)
     svc = SnService(conn)
     rows = svc.generate(
         product_model="SVG14",
@@ -96,6 +103,7 @@ def test_export_burn_failure_does_not_mark_used(tmp_path: Path, monkeypatch):
 
 def test_export_selected_both_mark_used(tmp_path: Path):
     conn = connect(tmp_path / "t.db")
+    _seed_svg14(conn)
     svc = SnService(conn)
     rows = svc.generate(
         product_model="SVG14",
@@ -125,6 +133,7 @@ def test_export_selected_both_mark_used(tmp_path: Path):
 
 def test_export_selected_excel_failure_does_not_mark_used(tmp_path: Path, monkeypatch):
     conn = connect(tmp_path / "t.db")
+    _seed_svg14(conn)
     svc = SnService(conn)
     rows = svc.generate(
         product_model="SVG14",

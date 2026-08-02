@@ -8,9 +8,15 @@ from PySide6.QtWidgets import QDialog, QMessageBox
 from sn_manager.app.paths import app_dir
 from sn_manager.app.services import SnService
 from sn_manager.core.status import Status
+from sn_manager.db import master_data as md
 from sn_manager.db.connection import connect
 from sn_manager.gui.export_dialog import ExportDialog, ExportParams
 from sn_manager.gui.main_window import ChangeStatusDialog, MainWindow, _TABLE_COLUMNS
+
+
+def _seed_svg14(conn) -> None:
+    md.upsert_product(conn, "SVG14", "示例外壳机")
+    md.upsert_hardware_batch(conn, "SVG14", "05", "第五批")
 
 
 def _status_col() -> int:
@@ -86,6 +92,7 @@ def test_main_window_action_buttons_disabled_without_selection(qapp, tmp_path: P
 
 def test_main_window_change_status_updates_table(qapp, tmp_path: Path, monkeypatch):
     conn = connect(tmp_path / "t.db")
+    _seed_svg14(conn)
     svc = SnService(conn)
     rows = svc.generate(
         product_model="SVG14",
@@ -124,6 +131,7 @@ def test_main_window_change_status_updates_table(qapp, tmp_path: Path, monkeypat
 
 def test_main_window_export_excel_selected_rows(qapp, tmp_path: Path, monkeypatch):
     conn = connect(tmp_path / "t.db")
+    _seed_svg14(conn)
     svc = SnService(conn)
     rows = svc.generate(
         product_model="SVG14",
@@ -175,6 +183,7 @@ def test_main_window_export_excel_selected_rows(qapp, tmp_path: Path, monkeypatc
 
 def test_main_window_export_burn_mark_used(qapp, tmp_path: Path, monkeypatch):
     conn = connect(tmp_path / "t.db")
+    _seed_svg14(conn)
     svc = SnService(conn)
     rows = svc.generate(
         product_model="SVG14",
@@ -228,6 +237,7 @@ def test_main_window_export_burn_mark_used(qapp, tmp_path: Path, monkeypatch):
 
 def test_main_window_export_burn_failure_shows_warning(qapp, tmp_path: Path, monkeypatch):
     conn = connect(tmp_path / "t.db")
+    _seed_svg14(conn)
     svc = SnService(conn)
     rows = svc.generate(
         product_model="SVG14",
