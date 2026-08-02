@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PySide6.QtWidgets import QAbstractItemView, QDialog, QMessageBox, QTableWidgetItem
+from PySide6.QtWidgets import QAbstractItemView, QDialog, QMessageBox, QTabWidget, QTableWidgetItem
 
 from sn_manager.app.services import MasterSnapshot, SnService
 from sn_manager.db import master_data as md
@@ -18,6 +18,51 @@ def test_master_data_dialog_loads_seed_data(qapp, tmp_path: Path):
     assert dlg._batch_table.columnCount() == 2
     assert dlg._factory_table.rowCount() == 2
     assert dlg._market_table.rowCount() == 4
+
+
+def test_master_data_dialog_has_three_tabs_no_batch_tab(qapp, tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    dlg = MasterDataDialog(SnService(conn))
+    tabs = dlg.findChild(QTabWidget)
+    assert tabs is not None
+    labels = [tabs.tabText(i) for i in range(tabs.count())]
+    assert labels == ["型号", "单位", "市场"]
+
+
+def test_master_data_dialog_batches_follow_selected_model(qapp, tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    md.add_product_model(conn, "SVG14", "示波器")
+    md.add_product_model(conn, "SCP4A", "采集器")
+    md.add_hardware_batch(conn, "SVG14", "01", "国产化FPGA")
+    md.add_hardware_batch(conn, "SCP4A", "01", "国产Wi-Fi模块")
+    dlg = MasterDataDialog(SnService(conn))
+    svg_row = next(
+        i
+        for i in range(dlg._model_table.rowCount())
+        if dlg._model_table.item(i, 0).text() == "SVG14"
+    )
+    dlg._model_table.selectRow(svg_row)
+    dlg._on_model_selection_changed()
+    assert dlg._batch_table.rowCount() == 1
+    assert dlg._batch_table.item(0, 0).text() == "01"
+    assert dlg._batch_table.item(0, 1).text() == "国产化FPGA"
+
+
+def test_master_data_dialog_accept_writes_scoped_batches(qapp, tmp_path: Path):
+    conn = connect(tmp_path / "t.db")
+    dlg = MasterDataDialog(SnService(conn))
+    dlg._add_row(dlg._model_table)
+    row = dlg._model_table.rowCount() - 1
+    dlg._model_table.setItem(row, 0, QTableWidgetItem("SVG14"))
+    dlg._model_table.setItem(row, 1, QTableWidgetItem("示波器"))
+    dlg._model_table.selectRow(row)
+    dlg._on_model_selection_changed()
+    dlg._add_row(dlg._batch_table)
+    dlg._batch_table.setItem(0, 0, QTableWidgetItem("01"))
+    dlg._batch_table.setItem(0, 1, QTableWidgetItem("国产化FPGA"))
+    dlg._on_accept()
+    batches = md.list_hardware_batches(conn, "SVG14")
+    assert [(r["code"], r["name"]) for r in batches] == [("01", "国产化FPGA")]
 
 
 def test_master_data_dialog_cancel_does_not_write(qapp, tmp_path: Path):
@@ -116,6 +161,7 @@ def test_apply_master_data_alias(qapp, tmp_path: Path):
     svc.apply_master_data(snapshot)
     assert [r["code"] for r in md.list_product_models(conn)] == ["ABC12"]
     assert md.list_hardware_batches(conn, "ABC12")[0]["name"] == "一批"
+
 
 def test_main_window_master_data_opens_dialog(qapp, tmp_path: Path, monkeypatch):
     conn = connect(tmp_path / "t.db")
