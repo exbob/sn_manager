@@ -11,7 +11,9 @@ uv run pyinstaller \
   --name sn-manager \
   --paths src \
   --collect-submodules PySide6 \
+  --icon assets/icons/sn-manager.ico \
   --add-data "app_version.txt:." \
+  --add-data "assets/icons:assets/icons" \
   src/sn_manager/__main__.py
 
 cp -f docs/user-manual.md dist/sn-manager/user-manual.md
